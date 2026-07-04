@@ -1,0 +1,555 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  --card-w: 74px;
+  --card-h: 106px;
+  --card-w-sm: 46px;
+  --card-h-sm: 66px;
+  --felt: #1c6b3a;
+  --felt-dark: #114526;
+  --wood: #4a2c17;
+  --gold: #e8c877;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background: #0d1f14;
+  color: #eee;
+  overflow: hidden;
+}
+
+.app {
+  position: relative;
+  height: 100%;
+}
+
+/* ---------- Table & felt ---------- */
+
+.table {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.felt {
+  position: absolute;
+  inset: 12px;
+  border-radius: 40px;
+  background: radial-gradient(ellipse at center, var(--felt) 0%, var(--felt-dark) 85%);
+  border: 14px solid var(--wood);
+  box-shadow:
+    inset 0 0 80px rgba(0, 0, 0, 0.55),
+    0 8px 30px rgba(0, 0, 0, 0.6);
+}
+
+/* ---------- Seats ---------- */
+
+.seat {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  z-index: 2;
+}
+
+.seat-north {
+  top: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.seat-south {
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.seat-west {
+  left: 44px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.seat-east {
+  right: 44px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.plate {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 14px;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 999px;
+  font-size: 14px;
+  transition: box-shadow 0.3s, border-color 0.3s;
+}
+
+.plate em {
+  color: #9fd6a9;
+  font-style: normal;
+  font-size: 12px;
+}
+
+.plate.active {
+  border-color: var(--gold);
+  box-shadow: 0 0 14px rgba(232, 200, 119, 0.7);
+}
+
+.chip {
+  background: var(--gold);
+  color: #4a3208;
+  font-weight: 700;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.chip.dealer {
+  background: #fff;
+  color: #333;
+}
+
+.chip.muted {
+  background: #777;
+  color: #eee;
+}
+
+.ai-cards {
+  display: flex;
+}
+
+.ai-cards .card {
+  margin-left: -26px;
+  animation: deal-in 0.4s ease-out both;
+}
+
+.ai-cards .card:first-child {
+  margin-left: 0;
+}
+
+.seat-west .ai-cards,
+.seat-east .ai-cards {
+  flex-direction: column;
+}
+
+.seat-west .ai-cards .card,
+.seat-east .ai-cards .card {
+  margin-left: 0;
+  margin-top: -44px;
+}
+
+.seat-west .ai-cards .card:first-child,
+.seat-east .ai-cards .card:first-child {
+  margin-top: 0;
+}
+
+/* ---------- Cards ---------- */
+
+.card {
+  position: relative;
+  width: var(--card-w);
+  height: var(--card-h);
+  border-radius: 8px;
+  background: #fdfdf6;
+  border: 1px solid #999;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.card.small {
+  width: var(--card-w-sm);
+  height: var(--card-h-sm);
+  border-radius: 6px;
+}
+
+.card.back {
+  background:
+    repeating-linear-gradient(
+      45deg,
+      #1e3f8f 0,
+      #1e3f8f 6px,
+      #2b55b8 6px,
+      #2b55b8 12px
+    );
+  border: 3px solid #fff;
+}
+
+.card.red {
+  color: #c0392b;
+}
+
+.card.black {
+  color: #1d1d1d;
+}
+
+.card .corner {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.card .corner.tl {
+  top: 5px;
+  left: 5px;
+}
+
+.card .corner.br {
+  bottom: 5px;
+  right: 5px;
+  transform: rotate(180deg);
+}
+
+.card .pip {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 34px;
+}
+
+.card.clickable {
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.card.clickable:hover {
+  transform: translateY(-14px);
+  box-shadow: 0 10px 18px rgba(0, 0, 0, 0.5);
+}
+
+.card.disabled {
+  filter: brightness(0.55);
+}
+
+.card.playable {
+  box-shadow: 0 0 0 2px var(--gold), 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
+/* ---------- Human hand ---------- */
+
+.hand {
+  display: flex;
+}
+
+.hand .card {
+  margin-left: -22px;
+  animation: deal-in 0.45s ease-out both;
+}
+
+.hand .card:first-child {
+  margin-left: 0;
+}
+
+@keyframes deal-in {
+  from {
+    transform: translateY(-60px) scale(0.5);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+.secret-trump {
+  font-size: 13px;
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px dashed var(--gold);
+  color: var(--gold);
+  padding: 3px 12px;
+  border-radius: 999px;
+}
+
+.reveal-btn {
+  position: absolute;
+  top: -54px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--gold);
+  color: #3c2a05;
+  font-weight: 700;
+  font-size: 14px;
+  border: none;
+  border-radius: 999px;
+  padding: 9px 20px;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+  animation: pulse 1.4s infinite;
+  z-index: 5;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(232, 200, 119, 0.7);
+  }
+  50% {
+    box-shadow: 0 0 0 12px rgba(232, 200, 119, 0);
+  }
+}
+
+/* ---------- Trick area ---------- */
+
+.trick-area {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  z-index: 3;
+}
+
+.trick-area .played {
+  position: absolute;
+  animation: slide-in 0.35s ease-out both;
+}
+
+/* resting offsets, biased toward the seat that played the card */
+.played.pos-0 { transform: translate(-50%, -50%) translate(0, 34px) rotate(-2deg); }
+.played.pos-1 { transform: translate(-50%, -50%) translate(-52px, 0) rotate(4deg); }
+.played.pos-2 { transform: translate(-50%, -50%) translate(0, -34px) rotate(2deg); }
+.played.pos-3 { transform: translate(-50%, -50%) translate(52px, 0) rotate(-4deg); }
+
+.played.from-0 { --fx: 0px; --fy: 320px; }
+.played.from-1 { --fx: -480px; --fy: 0px; }
+.played.from-2 { --fx: 0px; --fy: -320px; }
+.played.from-3 { --fx: 480px; --fy: 0px; }
+
+@keyframes slide-in {
+  from {
+    margin-left: var(--fx);
+    margin-top: var(--fy);
+    opacity: 0.4;
+  }
+  to {
+    margin-left: 0;
+    margin-top: 0;
+    opacity: 1;
+  }
+}
+
+/* sweep the finished trick toward the winner */
+.trick-area.sweep-0 .played { animation: sweep-0 0.6s ease-in 0.8s both; }
+.trick-area.sweep-1 .played { animation: sweep-1 0.6s ease-in 0.8s both; }
+.trick-area.sweep-2 .played { animation: sweep-2 0.6s ease-in 0.8s both; }
+.trick-area.sweep-3 .played { animation: sweep-3 0.6s ease-in 0.8s both; }
+
+@keyframes sweep-0 {
+  to { margin-top: 360px; margin-left: 0; opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+}
+@keyframes sweep-1 {
+  to { margin-left: -540px; margin-top: 0; opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+}
+@keyframes sweep-2 {
+  to { margin-top: -360px; margin-left: 0; opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+}
+@keyframes sweep-3 {
+  to { margin-left: 540px; margin-top: 0; opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+}
+
+/* ---------- Message bar & banners ---------- */
+
+.message-bar {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 6px 18px;
+  border-radius: 999px;
+  font-size: 14px;
+  max-width: 60%;
+  text-align: center;
+  z-index: 6;
+}
+
+.trump-banner {
+  position: absolute;
+  bottom: 24px;
+  right: 24px;
+  background: rgba(0, 0, 0, 0.7);
+  border: 1px solid var(--gold);
+  color: #fff;
+  font-size: 18px;
+  padding: 8px 16px;
+  border-radius: 12px;
+  z-index: 6;
+}
+
+.trump-banner .red {
+  color: #ff7b6e;
+}
+
+.trump-indicator {
+  transform: scale(0.55);
+  margin: -14px -8px;
+}
+
+/* ---------- Scoreboard ---------- */
+
+.scoreboard {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  width: 220px;
+  background: rgba(0, 0, 0, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 14px;
+  padding: 14px 16px;
+  font-size: 14px;
+  z-index: 7;
+}
+
+.scoreboard h3 {
+  margin-bottom: 8px;
+  color: var(--gold);
+  font-size: 15px;
+}
+
+.scoreboard hr {
+  border: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  margin: 8px 0;
+}
+
+.score-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 2px 0;
+}
+
+/* ---------- Modals ---------- */
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  animation: fade-in 0.25s ease-out;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.modal {
+  background: #17281d;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 18px;
+  padding: 26px 32px;
+  max-width: 480px;
+  text-align: center;
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.7);
+}
+
+.modal h2 {
+  margin-bottom: 8px;
+  color: var(--gold);
+}
+
+.modal-sub {
+  color: #cfe3d2;
+  margin-bottom: 16px;
+  font-size: 14px;
+}
+
+.bid-history {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+  margin-bottom: 18px;
+}
+
+.bid-buttons {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.btn {
+  border: none;
+  border-radius: 10px;
+  padding: 10px 22px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.1s, filter 0.15s;
+}
+
+.btn:hover {
+  filter: brightness(1.15);
+  transform: translateY(-2px);
+}
+
+.btn.primary {
+  background: var(--gold);
+  color: #3c2a05;
+}
+
+.btn.danger {
+  background: #8f3030;
+  color: #fff;
+}
+
+.trump-choices,
+.hand-preview {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.trump-choices .card {
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+
+.trump-choices .card:hover {
+  transform: translateY(-10px);
+}
+
+.score-table {
+  width: 100%;
+  margin-bottom: 18px;
+  border-collapse: collapse;
+  font-size: 15px;
+}
+
+.score-table td {
+  padding: 6px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  text-align: left;
+}
+
+.score-table td:not(:first-child) {
+  text-align: right;
+  font-weight: 700;
+}
