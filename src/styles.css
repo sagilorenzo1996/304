@@ -5,14 +5,16 @@
 }
 
 :root {
-  --card-w: 74px;
-  --card-h: 106px;
-  --card-w-sm: 46px;
-  --card-h-sm: 66px;
+  /* Cards scale with the viewport so the table works from phones to desktops. */
+  --card-w: clamp(50px, 10.5vmin, 76px);
+  --card-h: calc(var(--card-w) * 1.42);
+  --card-w-sm: clamp(28px, 6vmin, 46px);
+  --card-h-sm: calc(var(--card-w-sm) * 1.42);
   --felt: #1c6b3a;
   --felt-dark: #114526;
   --wood: #4a2c17;
   --gold: #e8c877;
+  --spring: cubic-bezier(0.34, 1.4, 0.64, 1);
 }
 
 html,
@@ -26,11 +28,14 @@ body {
   background: #0d1f14;
   color: #eee;
   overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
 .app {
   position: relative;
   height: 100%;
+  height: 100dvh;
 }
 
 /* ---------- Table & felt ---------- */
@@ -43,10 +48,10 @@ body {
 
 .felt {
   position: absolute;
-  inset: 12px;
-  border-radius: 40px;
+  inset: clamp(4px, 1.2vmin, 12px);
+  border-radius: clamp(18px, 5vmin, 40px);
   background: radial-gradient(ellipse at center, var(--felt) 0%, var(--felt-dark) 85%);
-  border: 14px solid var(--wood);
+  border: clamp(6px, 1.6vmin, 14px) solid var(--wood);
   box-shadow:
     inset 0 0 80px rgba(0, 0, 0, 0.55),
     0 8px 30px rgba(0, 0, 0, 0.6);
@@ -64,25 +69,25 @@ body {
 }
 
 .seat-north {
-  top: 40px;
+  top: clamp(34px, 6vmin, 44px);
   left: 50%;
   transform: translateX(-50%);
 }
 
 .seat-south {
-  bottom: 28px;
+  bottom: clamp(12px, 3.5vmin, 28px);
   left: 50%;
   transform: translateX(-50%);
 }
 
 .seat-west {
-  left: 44px;
+  left: clamp(14px, 4.5vmin, 44px);
   top: 50%;
   transform: translateY(-50%);
 }
 
 .seat-east {
-  right: 44px;
+  right: clamp(14px, 4.5vmin, 44px);
   top: 50%;
   transform: translateY(-50%);
 }
@@ -91,18 +96,19 @@ body {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 5px 14px;
+  padding: 4px 12px;
   background: rgba(0, 0, 0, 0.55);
   border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 999px;
-  font-size: 14px;
+  font-size: clamp(11px, 2vmin, 14px);
   transition: box-shadow 0.3s, border-color 0.3s;
+  white-space: nowrap;
 }
 
 .plate em {
   color: #9fd6a9;
   font-style: normal;
-  font-size: 12px;
+  font-size: 0.85em;
 }
 
 .plate.active {
@@ -110,11 +116,27 @@ body {
   box-shadow: 0 0 14px rgba(232, 200, 119, 0.7);
 }
 
+.plate.winner {
+  animation: winner-flash 0.7s ease-out 2;
+}
+
+@keyframes winner-flash {
+  0%,
+  100% {
+    border-color: rgba(255, 255, 255, 0.15);
+    box-shadow: none;
+  }
+  50% {
+    border-color: #ffe9a8;
+    box-shadow: 0 0 22px rgba(255, 233, 168, 0.95);
+  }
+}
+
 .chip {
   background: var(--gold);
   color: #4a3208;
   font-weight: 700;
-  font-size: 11px;
+  font-size: 0.8em;
   padding: 2px 8px;
   border-radius: 999px;
 }
@@ -134,8 +156,8 @@ body {
 }
 
 .ai-cards .card {
-  margin-left: -26px;
-  animation: deal-in 0.4s ease-out both;
+  margin-left: calc(var(--card-w-sm) * -0.58);
+  animation: deal-in 0.5s var(--spring) both;
 }
 
 .ai-cards .card:first-child {
@@ -150,7 +172,7 @@ body {
 .seat-west .ai-cards .card,
 .seat-east .ai-cards .card {
   margin-left: 0;
-  margin-top: -44px;
+  margin-top: calc(var(--card-h-sm) * -0.66);
 }
 
 .seat-west .ai-cards .card:first-child,
@@ -169,6 +191,7 @@ body {
   border: 1px solid #999;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
   user-select: none;
+  -webkit-user-select: none;
   flex-shrink: 0;
 }
 
@@ -203,7 +226,7 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  font-size: 14px;
+  font-size: clamp(10px, 1.9vmin, 14px);
   font-weight: 700;
   line-height: 1;
 }
@@ -225,7 +248,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 34px;
+  font-size: clamp(22px, 4.6vmin, 34px);
 }
 
 .card.clickable {
@@ -253,8 +276,8 @@ body {
 }
 
 .hand .card {
-  margin-left: -22px;
-  animation: deal-in 0.45s ease-out both;
+  margin-left: calc(var(--card-w) * -0.34);
+  animation: deal-in 0.5s var(--spring) both;
 }
 
 .hand .card:first-child {
@@ -263,17 +286,17 @@ body {
 
 @keyframes deal-in {
   from {
-    transform: translateY(-60px) scale(0.5);
+    transform: translateY(-55px) rotate(-6deg) scale(0.4);
     opacity: 0;
   }
   to {
-    transform: translateY(0) scale(1);
+    transform: translateY(0) rotate(0) scale(1);
     opacity: 1;
   }
 }
 
 .secret-trump {
-  font-size: 13px;
+  font-size: clamp(11px, 2vmin, 13px);
   background: rgba(0, 0, 0, 0.6);
   border: 1px dashed var(--gold);
   color: var(--gold);
@@ -289,10 +312,10 @@ body {
   background: var(--gold);
   color: #3c2a05;
   font-weight: 700;
-  font-size: 14px;
+  font-size: clamp(12px, 2.2vmin, 14px);
   border: none;
   border-radius: 999px;
-  padding: 9px 20px;
+  padding: 10px 20px;
   cursor: pointer;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
   animation: pulse 1.4s infinite;
@@ -322,25 +345,28 @@ body {
 
 .trick-area .played {
   position: absolute;
-  animation: slide-in 0.35s ease-out both;
+  animation: slide-in 0.4s var(--spring) both;
 }
 
 /* resting offsets, biased toward the seat that played the card */
-.played.pos-0 { transform: translate(-50%, -50%) translate(0, 34px) rotate(-2deg); }
-.played.pos-1 { transform: translate(-50%, -50%) translate(-52px, 0) rotate(4deg); }
-.played.pos-2 { transform: translate(-50%, -50%) translate(0, -34px) rotate(2deg); }
-.played.pos-3 { transform: translate(-50%, -50%) translate(52px, 0) rotate(-4deg); }
+.played.pos-0 { transform: translate(-50%, -50%) translate(0, clamp(22px, 5vmin, 34px)) rotate(-2deg); }
+.played.pos-1 { transform: translate(-50%, -50%) translate(clamp(-52px, -7vmin, -34px), 0) rotate(4deg); }
+.played.pos-2 { transform: translate(-50%, -50%) translate(0, clamp(-34px, -5vmin, -22px)) rotate(2deg); }
+.played.pos-3 { transform: translate(-50%, -50%) translate(clamp(34px, 7vmin, 52px), 0) rotate(-4deg); }
 
-.played.from-0 { --fx: 0px; --fy: 320px; }
-.played.from-1 { --fx: -480px; --fy: 0px; }
-.played.from-2 { --fx: 0px; --fy: -320px; }
-.played.from-3 { --fx: 480px; --fy: 0px; }
+.played.from-0 { --fx: 0px; --fy: 42vmin; }
+.played.from-1 { --fx: -46vw; --fy: 0px; }
+.played.from-2 { --fx: 0px; --fy: -42vmin; }
+.played.from-3 { --fx: 46vw; --fy: 0px; }
 
 @keyframes slide-in {
   from {
     margin-left: var(--fx);
     margin-top: var(--fy);
     opacity: 0.4;
+  }
+  60% {
+    opacity: 1;
   }
   to {
     margin-left: 0;
@@ -356,31 +382,58 @@ body {
 .trick-area.sweep-3 .played { animation: sweep-3 0.6s ease-in 0.8s both; }
 
 @keyframes sweep-0 {
-  to { margin-top: 360px; margin-left: 0; opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+  to { margin-top: 48vmin; margin-left: 0; opacity: 0; transform: translate(-50%, -50%) scale(0.4) rotate(8deg); }
 }
 @keyframes sweep-1 {
-  to { margin-left: -540px; margin-top: 0; opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+  to { margin-left: -50vw; margin-top: 0; opacity: 0; transform: translate(-50%, -50%) scale(0.4) rotate(-8deg); }
 }
 @keyframes sweep-2 {
-  to { margin-top: -360px; margin-left: 0; opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+  to { margin-top: -48vmin; margin-left: 0; opacity: 0; transform: translate(-50%, -50%) scale(0.4) rotate(8deg); }
 }
 @keyframes sweep-3 {
-  to { margin-left: 540px; margin-top: 0; opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+  to { margin-left: 50vw; margin-top: 0; opacity: 0; transform: translate(-50%, -50%) scale(0.4) rotate(-8deg); }
+}
+
+.trick-points {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform: translate(-50%, -50%);
+  color: var(--gold);
+  font-size: clamp(20px, 4vmin, 28px);
+  font-weight: 800;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+  animation: float-up 1.3s ease-out both;
+  pointer-events: none;
+}
+
+@keyframes float-up {
+  from {
+    opacity: 0;
+    margin-top: 10px;
+  }
+  25% {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+    margin-top: -64px;
+  }
 }
 
 /* ---------- Message bar & banners ---------- */
 
 .message-bar {
   position: absolute;
-  top: 16px;
+  top: clamp(8px, 1.8vmin, 16px);
   left: 50%;
   transform: translateX(-50%);
   background: rgba(0, 0, 0, 0.65);
   border: 1px solid rgba(255, 255, 255, 0.12);
-  padding: 6px 18px;
+  padding: 5px 16px;
   border-radius: 999px;
-  font-size: 14px;
-  max-width: 60%;
+  font-size: clamp(11px, 2vmin, 14px);
+  max-width: min(60%, 520px);
   text-align: center;
   z-index: 6;
 }
@@ -392,10 +445,22 @@ body {
   background: rgba(0, 0, 0, 0.7);
   border: 1px solid var(--gold);
   color: #fff;
-  font-size: 18px;
+  font-size: clamp(14px, 2.6vmin, 18px);
   padding: 8px 16px;
   border-radius: 12px;
   z-index: 6;
+  animation: pop-in 0.45s var(--spring) both;
+}
+
+@keyframes pop-in {
+  from {
+    transform: scale(0.4) rotate(-6deg);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1) rotate(0);
+    opacity: 1;
+  }
 }
 
 .trump-banner .red {
@@ -407,7 +472,7 @@ body {
   margin: -14px -8px;
 }
 
-/* ---------- Scoreboard ---------- */
+/* ---------- Scoreboard & mute ---------- */
 
 .scoreboard {
   position: absolute;
@@ -437,7 +502,36 @@ body {
 .score-row {
   display: flex;
   justify-content: space-between;
+  gap: 10px;
   padding: 2px 0;
+}
+
+.scoreboard .short {
+  display: none; /* compact labels only appear in the mobile strip */
+}
+
+.bidder-tag {
+  font-weight: 400;
+  color: #cfe3d2;
+}
+
+.mute-btn {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 20; /* stays reachable above modal overlays */
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(0, 0, 0, 0.6);
+  font-size: 20px;
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+
+.mute-btn:hover {
+  transform: scale(1.1);
 }
 
 /* ---------- Modals ---------- */
@@ -451,6 +545,7 @@ body {
   justify-content: center;
   z-index: 10;
   animation: fade-in 0.25s ease-out;
+  padding: 12px;
 }
 
 @keyframes fade-in {
@@ -462,21 +557,36 @@ body {
   background: #17281d;
   border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 18px;
-  padding: 26px 32px;
-  max-width: 480px;
+  padding: clamp(16px, 3.5vmin, 26px) clamp(18px, 4vmin, 32px);
+  max-width: min(480px, 94vw);
+  max-height: 92dvh;
+  overflow-y: auto;
   text-align: center;
   box-shadow: 0 18px 60px rgba(0, 0, 0, 0.7);
+  animation: modal-pop 0.35s var(--spring) both;
+}
+
+@keyframes modal-pop {
+  from {
+    transform: scale(0.88) translateY(14px);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+  }
 }
 
 .modal h2 {
   margin-bottom: 8px;
   color: var(--gold);
+  font-size: clamp(17px, 3.2vmin, 24px);
 }
 
 .modal-sub {
   color: #cfe3d2;
   margin-bottom: 16px;
-  font-size: 14px;
+  font-size: clamp(12px, 2.2vmin, 14px);
 }
 
 .bid-history {
@@ -497,7 +607,7 @@ body {
 .btn {
   border: none;
   border-radius: 10px;
-  padding: 10px 22px;
+  padding: 12px 22px;
   font-size: 16px;
   font-weight: 700;
   cursor: pointer;
@@ -525,6 +635,7 @@ body {
   gap: 12px;
   justify-content: center;
   margin-bottom: 16px;
+  flex-wrap: wrap;
 }
 
 .trump-choices .card {
@@ -552,4 +663,129 @@ body {
 .score-table td:not(:first-child) {
   text-align: right;
   font-weight: 700;
+}
+
+/* ---------- Mobile layout ---------- */
+
+@media (max-width: 760px), (max-height: 520px) {
+  /* The scoreboard becomes a slim strip along the very top. */
+  .scoreboard {
+    top: 0;
+    left: 0;
+    right: 0;
+    width: auto;
+    border-radius: 0;
+    padding: 4px 44px 4px 8px; /* keep clear of the mute button */
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    gap: 8px;
+    font-size: 12px;
+    background: rgba(0, 0, 0, 0.85);
+    white-space: nowrap;
+  }
+
+  .scoreboard h3 {
+    margin: 0;
+    font-size: 12px;
+  }
+
+  .scoreboard hr {
+    display: none;
+  }
+
+  .scoreboard .long,
+  .scoreboard .bidder-tag {
+    display: none;
+  }
+
+  .scoreboard .short {
+    display: inline;
+  }
+
+  .score-row {
+    padding: 0;
+    gap: 4px;
+    align-items: center;
+  }
+
+  .mute-btn {
+    top: 0;
+    right: 4px;
+    width: 30px;
+    height: 30px;
+    font-size: 14px;
+    background: transparent;
+    border: none;
+  }
+
+  .message-bar {
+    top: 36px;
+    max-width: 88%;
+    font-size: 11px;
+    padding: 4px 12px;
+  }
+
+  .seat-north {
+    top: 64px;
+  }
+
+  .seat-west {
+    left: 6px;
+  }
+
+  .seat-east {
+    right: 6px;
+  }
+
+  .seat-south {
+    bottom: 8px;
+  }
+
+  /* Tighter fans so 8 cards fit a narrow screen. */
+  .hand .card {
+    margin-left: calc(var(--card-w) * -0.5);
+  }
+
+  .ai-cards .card {
+    margin-left: calc(var(--card-w-sm) * -0.72);
+  }
+
+  .seat-west .ai-cards .card,
+  .seat-east .ai-cards .card {
+    margin-top: calc(var(--card-h-sm) * -0.78);
+  }
+
+  .card.clickable:hover {
+    transform: none; /* no hover lift on touch screens */
+  }
+
+  .reveal-btn {
+    top: -48px;
+  }
+
+  .trump-banner {
+    bottom: auto;
+    top: 64px;
+    right: 8px;
+    padding: 5px 10px;
+    font-size: 13px;
+  }
+
+  .felt {
+    inset: 30px 2px 2px 2px;
+    border-radius: 14px;
+  }
+}
+
+/* ---------- Reduced motion ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

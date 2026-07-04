@@ -1,15 +1,81 @@
 /**
  * Heuristic engine for the three automated players.
  *
- * The AI is intentionally information-honest: only the bidder "knows" the
- * trump suit before it is revealed, and no AI ever looks at another
- * player's hand.
+ * The AI is information-honest: only the bidder "knows" the trump suit
+ * before it is revealed, and no AI ever looks at another player's hand.
+ * It does, however, remember everything that has legitimately been seen —
+ * played cards and who showed out of which suit — via `buildMemory`.
  */
 import { effectiveTrump, GameState, isValidBid, MIN_BID, BID_STEP, trumpSuitOf } from './engine';
 import { currentWinner, isVoidInLedSuit, legalMoves, trickPoints } from './rules';
-import { Card, Seat, Suit, SUITS, cardPoints, cardPower, teamOf } from './types';
+import {
+  Card,
+  RANK_POWER,
+  RANKS,
+  Seat,
+  Suit,
+  SUITS,
+  cardPoints,
+  cardPower,
+  nextSeat,
+  partnerOf,
+  teamOf,
+} from './types';
 
 export type AiMove = { action: 'reveal' } | { action: 'play'; cardId: string };
+
+// ---------------------------------------------------------------------------
+// Card memory
+// ---------------------------------------------------------------------------
+
+export interface Memory {
+  /** Ids of every card this seat has legitimately seen (plays + own hand). */
+  seen: Set<string>;
+  /** voids[seat][suit] — that seat has shown out of that suit. */
+  voids: Record<Suit, boolean>[];
+}
+
+/** Everything `seat` can legitimately know about the deal so far. */
+export function buildMemory(state: GameState, seat: Seat): Memory {
+  const seen = new Set<string>();
+  const voids: Record<Suit, boolean>[] = [0, 1, 2, 3].map(() => ({
+    S: false,
+    H: false,
+    D: false,
+    C: false,
+  }));
+  for (const trick of [...state.trickHistory, state.currentTrick]) {
+    if (trick.length === 0) continue;
+    const ledSuit = trick[0].card.suit;
+    for (const p of trick) {
+      seen.add(p.card.id);
+      if (p.card.suit !== ledSuit) voids[p.seat][ledSuit] = true;
+    }
+  }
+  for (const c of state.hands[seat]) seen.add(c.id);
+  if (state.trumpCard && (state.trumpRevealed || seat === state.bidder)) {
+    seen.add(state.trumpCard.id);
+  }
+  return { seen, voids };
+}
+
+/**
+ * A card is "boss" when no unseen card of its suit outranks it — nobody
+ * else can beat it in that suit (it may still fall to a trump).
+ */
+export function isBoss(card: Card, mem: Memory): boolean {
+  return RANKS.every(
+    (rank) =>
+      RANK_POWER[rank] <= cardPower(card) || mem.seen.has(`${card.suit}-${rank}`),
+  );
+}
+
+const unseenInSuit = (suit: Suit, mem: Memory): number =>
+  RANKS.filter((rank) => !mem.seen.has(`${suit}-${rank}`)).length;
+
+// ---------------------------------------------------------------------------
+// Bidding
+// ---------------------------------------------------------------------------
 
 const bySuit = (hand: Card[]): Record<Suit, Card[]> => {
   const groups = { S: [], H: [], D: [], C: [] } as Record<Suit, Card[]>;
@@ -73,15 +139,22 @@ export function chooseTrumpCard(state: GameState, seat: Seat): string {
   return lowest.id;
 }
 
+// ---------------------------------------------------------------------------
+// Card play
+// ---------------------------------------------------------------------------
+
 const lowestBy = (cards: Card[], score: (c: Card) => number): Card =>
   cards.reduce((a, b) => (score(b) < score(a) ? b : a));
 
-/** Cheapest card to give away: minimize points first, then rank power. */
-const throwaway = (cards: Card[]): Card => lowestBy(cards, (c) => cardPoints(c) * 10 + cardPower(c));
+/** Cheapest card to give away: minimize points, avoid breaking up bosses. */
+const throwaway = (cards: Card[], mem: Memory): Card =>
+  lowestBy(cards, (c) => cardPoints(c) * 10 + cardPower(c) + (isBoss(c, mem) ? 60 : 0));
 
 /** Highest-point card to feed to a winning partner (ties broken low). */
 const feedCard = (cards: Card[]): Card =>
   lowestBy(cards, (c) => -(cardPoints(c) * 10) + cardPower(c));
+
+const play = (card: Card): AiMove => ({ action: 'play', cardId: card.id });
 
 /**
  * Playing AI. May return `{action:'reveal'}` when void in the led suit;
@@ -92,30 +165,97 @@ export function choosePlay(state: GameState, seat: Seat): AiMove {
   const trick = state.currentTrick;
   const legal = legalMoves(hand, trick);
   const trump = effectiveTrump(state); // null while concealed
+  const trumpSuit = trumpSuitOf(state);
   const isBidder = seat === state.bidder;
+  const knowsTrump = state.trumpRevealed || isBidder;
+  const mem = buildMemory(state, seat);
+  const partner = partnerOf(seat);
 
-  // ---- Leading a trick -------------------------------------------------
+  // Seats still to play after us in this trick.
+  const seatsYetToPlay: Seat[] = [];
+  let s = nextSeat(seat);
+  while (seatsYetToPlay.length < 3 - trick.length) {
+    seatsYetToPlay.push(s);
+    s = nextSeat(s);
+  }
+  const oppsYetToPlay = seatsYetToPlay.filter((p) => teamOf(p) !== teamOf(seat));
+  const ledSuit = trick[0]?.card.suit ?? null;
+
+  /** Could an opponent still to play beat this card if it were winning? */
+  const beatableByOpponent = (card: Card): boolean => {
+    if (oppsYetToPlay.length === 0) return false;
+    const higherUnseen = RANKS.some(
+      (rank) =>
+        RANK_POWER[rank] > cardPower(card) && !mem.seen.has(`${card.suit}-${rank}`),
+    );
+    const suitThreat =
+      higherUnseen && oppsYetToPlay.some((op) => !mem.voids[op][card.suit]);
+    // Known-void opponents may ruff a non-trump winner once the trump is live.
+    const trumpThreat =
+      trump !== null &&
+      card.suit !== trump &&
+      ledSuit !== null &&
+      oppsYetToPlay.some((op) => mem.voids[op][ledSuit] && !mem.voids[op][trump]);
+    return suitThreat || trumpThreat;
+  };
+
+  // ---- Leading a trick ----------------------------------------------------
   if (trick.length === 0) {
-    const jacks = legal.filter((c) => c.rank === 'J');
-    if (jacks.length > 0) {
-      // Lead the J from the longest of our J-suits: it is the boss card of
-      // its suit and cashes 30 points (barring a trump).
-      const groups = bySuit(hand);
-      return {
-        action: 'play',
-        cardId: jacks.reduce((a, b) => (groups[b.suit].length > groups[a.suit].length ? b : a)).id,
-      };
-    }
-    // Otherwise probe with a cheap card from our longest suit.
     const groups = bySuit(hand);
-    const longest = SUITS.reduce((a, b) => (groups[b].length > groups[a].length ? b : a));
-    return { action: 'play', cardId: throwaway(groups[longest].length ? groups[longest] : legal).id };
+    const bidderTeam = state.bidder !== null && teamOf(seat) === teamOf(state.bidder);
+
+    // Draw trumps: with the trump out and the boss trump in hand, the
+    // bidding side pulls the opponents' trumps before cashing side suits.
+    if (trump && bidderTeam) {
+      const trumps = groups[trump];
+      const bossTrump = trumps.find((c) => isBoss(c, mem));
+      if (bossTrump && unseenInSuit(trump, mem) > 0) return play(bossTrump);
+    }
+
+    // Cash a boss card, preferring point-heavy ones and suits that
+    // opponents still have to follow (and cannot ruff).
+    const bosses = hand.filter((c) => {
+      if (!isBoss(c, mem)) return false;
+      if (trump && c.suit !== trump) {
+        const ruffable = oppsYetToPlay.some(
+          (op) => mem.voids[op][c.suit] && !mem.voids[op][trump],
+        );
+        if (ruffable) return false;
+      }
+      return true;
+    });
+    if (bosses.length > 0) {
+      return play(
+        bosses.reduce((a, b) =>
+          cardPoints(b) * 10 + unseenInSuit(b.suit, mem) >
+          cardPoints(a) * 10 + unseenInSuit(a.suit, mem)
+            ? b
+            : a,
+        ),
+      );
+    }
+
+    // Probe: a cheap card from our longest suit, avoiding suits an
+    // opponent is known to be void in (they would ruff or discard freely).
+    const safeSuits = SUITS.filter(
+      (suit) =>
+        groups[suit].length > 0 &&
+        !oppsYetToPlay.some((op) => mem.voids[op][suit] && (!trump || !mem.voids[op][trump])),
+    );
+    const pool =
+      safeSuits.length > 0
+        ? safeSuits.reduce((a, b) => (groups[b].length > groups[a].length ? b : a))
+        : SUITS.filter((suit) => groups[suit].length > 0).reduce((a, b) =>
+            groups[b].length > groups[a].length ? b : a,
+          );
+    return play(throwaway(groups[pool], mem));
   }
 
-  // ---- Following to a trick --------------------------------------------
+  // ---- Following to a trick -----------------------------------------------
   const winner = currentWinner(trick, trump)!;
-  const partnerWinning = teamOf(winner.seat) === teamOf(seat);
+  const partnerWinning = winner.seat === partner;
   const isLast = trick.length === 3;
+  const trickPts = trickPoints(trick);
   const wouldWin = (card: Card): boolean =>
     currentWinner([...trick, { seat, card }], trump)!.seat === seat;
 
@@ -127,46 +267,50 @@ export function choosePlay(state: GameState, seat: Seat): AiMove {
     const wantsReveal = isBidder
       ? // The bidder knows the trump; reveal only when actually holding
         // trumps and there is something worth taking.
-        hand.some((c) => c.suit === trumpSuitOf(state)) &&
-        (!partnerWinning || trickPoints(trick) >= 20)
+        hand.some((c) => c.suit === trumpSuit) &&
+        (!partnerWinning || trickPts >= 20)
       : // Others gamble: reveal when holding strong cards (J, or a guarded 9)
         // in some suit, hoping it is — or can beat — the trump.
         !partnerWinning &&
         SUITS.some(
-          (s) => groups[s].some((c) => c.rank === 'J') || (groups[s].length >= 2 && groups[s].some((c) => c.rank === '9')),
+          (suit) =>
+            groups[suit].some((c) => c.rank === 'J') ||
+            (groups[suit].length >= 2 && groups[suit].some((c) => c.rank === '9')),
         );
     if (wantsReveal) return { action: 'reveal' };
   }
 
+  const partnerSecure = partnerWinning && !beatableByOpponent(winner.card);
+
   if (!voidInLed) {
-    const partnerSecure = partnerWinning && (isLast || winner.card.rank === 'J');
     if (partnerSecure) {
       // Feed points (10s, Aces...) to a partner who has the trick locked up.
-      return { action: 'play', cardId: feedCard(legal).id };
+      return play(feedCard(legal));
     }
     const winning = legal.filter(wouldWin);
     if (winning.length > 0 && !partnerWinning) {
-      // Take it as cheaply as possible: the lowest card that still wins.
-      return { action: 'play', cardId: lowestBy(winning, cardPower).id };
+      // Win with a boss that sticks — bank its points too — else win cheap.
+      const sticky = winning.filter((c) => !beatableByOpponent(c));
+      if (sticky.length > 0) return play(feedCard(sticky));
+      const cheap = lowestBy(winning, cardPower);
+      if (isLast || trickPts >= 10 || cardPoints(cheap) === 0) return play(cheap);
     }
-    return { action: 'play', cardId: throwaway(legal).id };
+    return play(throwaway(legal, mem));
   }
 
-  // ---- Void in the led suit ---------------------------------------------
-  const trumpSuit = trumpSuitOf(state);
+  // ---- Void in the led suit -----------------------------------------------
   if (trump && trumpSuit) {
     const winningTrumps = hand.filter((c) => c.suit === trumpSuit && wouldWin(c));
-    if (!partnerWinning && winningTrumps.length > 0 && trickPoints(trick) >= 3) {
-      return { action: 'play', cardId: lowestBy(winningTrumps, cardPower).id };
+    if (!partnerWinning && winningTrumps.length > 0 && (trickPts >= 3 || isLast)) {
+      return play(lowestBy(winningTrumps, cardPower));
     }
   }
-  if (partnerWinning && (isLast || winner.card.rank === 'J')) {
+  if (partnerSecure) {
     const nonTrump = hand.filter((c) => c.suit !== trumpSuit);
-    return { action: 'play', cardId: feedCard(nonTrump.length ? nonTrump : hand).id };
+    return play(feedCard(nonTrump.length > 0 ? nonTrump : hand));
   }
   // Discard as cheaply as possible, hanging on to trumps when we know them.
-  const knowsTrump = state.trumpRevealed || isBidder;
   const nonTrump = hand.filter((c) => c.suit !== trumpSuit);
   const discardPool = knowsTrump && nonTrump.length > 0 ? nonTrump : hand;
-  return { action: 'play', cardId: throwaway(discardPool).id };
+  return play(throwaway(discardPool, mem));
 }
