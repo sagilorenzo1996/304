@@ -1,4 +1,5 @@
-import { useEffect, useReducer } from 'react';
+import { useEffect, useReducer, useRef } from 'react';
+import { sfx } from '../audio/sfx';
 import { chooseBid, choosePlay, chooseTrumpCard } from '../game/ai';
 import {
   collectTrick,
@@ -68,6 +69,31 @@ function reducer(state: GameState, action: GameAction): GameState {
  */
 export function useGame() {
   const [state, dispatch] = useReducer(reducer, undefined, () => createRound(3, [0, 0], 1));
+
+  // Sound effects, driven purely by state transitions.
+  const prevRef = useRef(state);
+  useEffect(() => {
+    const prev = prevRef.current;
+    prevRef.current = state;
+    if (prev === state) return;
+
+    if (state.round !== prev.round) sfx.deal();
+    else if (prev.phase === 'trumpSelection' && state.phase === 'playing') sfx.deal();
+
+    if (state.bidHistory.length > prev.bidHistory.length) {
+      const last = state.bidHistory[state.bidHistory.length - 1];
+      last.bid === null ? sfx.pass() : sfx.bid();
+    }
+    if (state.phase === 'playing' && state.currentTrick.length > prev.currentTrick.length) {
+      sfx.playCard();
+    }
+    if (state.trickComplete && !prev.trickComplete) sfx.trick();
+    if (state.trumpRevealed && !prev.trumpRevealed) sfx.reveal();
+    if (state.phase === 'roundEnd' && prev.phase !== 'roundEnd' && state.roundResult) {
+      const humanTeamWon = (state.roundResult.bidderTeam === 0) === state.roundResult.success;
+      humanTeamWon ? sfx.roundWin() : sfx.roundLose();
+    }
+  }, [state]);
 
   useEffect(() => {
     let delay: number | null = null;

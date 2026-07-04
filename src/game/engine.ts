@@ -55,6 +55,7 @@ export interface GameState {
   trickComplete: boolean;
   trickWinnerSeat: Seat | null;
   tricksPlayed: number;
+  trickHistory: PlayedCard[][]; // completed tricks, in play order
 
   // Scoring
   teamPoints: [number, number]; // card points captured this round [NS, EW]
@@ -110,6 +111,7 @@ export function createRound(
     trickComplete: false,
     trickWinnerSeat: null,
     tricksPlayed: 0,
+    trickHistory: [],
     teamPoints: [0, 0],
     matchWins,
     roundResult: null,
@@ -284,6 +286,7 @@ export function collectTrick(state: GameState): GameState {
   const s = structuredClone(state);
   const winner = s.trickWinnerSeat as Seat;
   s.teamPoints[teamOf(winner)] += trickPoints(s.currentTrick);
+  s.trickHistory.push(s.currentTrick);
   s.currentTrick = [];
   s.trickComplete = false;
   s.trickWinnerSeat = null;

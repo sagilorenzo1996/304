@@ -2,30 +2,41 @@ import { GameState } from '../game/engine';
 import { SEAT_NAMES, TEAM_NAMES } from '../game/types';
 import { suitChar } from './CardView';
 
+/** A label with a compact variant for the mobile top strip. */
+function Label({ long, short }: { long: string; short: string }) {
+  return (
+    <span>
+      <span className="long">{long}</span>
+      <span className="short">{short}</span>
+    </span>
+  );
+}
+
 /** Persistent panel: team points, the bid to beat, and trump status. */
 export default function Scoreboard({ state }: { state: GameState }) {
   return (
     <aside className="scoreboard">
-      <h3>Round {state.round}</h3>
+      <h3>
+        <Label long={`Round ${state.round}`} short={`R${state.round}`} />
+      </h3>
       <div className="score-row">
-        <span>{TEAM_NAMES[0]} (you)</span>
+        <Label long={`${TEAM_NAMES[0]} (you)`} short="Us" />
         <b>{state.teamPoints[0]}</b>
       </div>
       <div className="score-row">
-        <span>{TEAM_NAMES[1]}</span>
+        <Label long={TEAM_NAMES[1]} short="Them" />
         <b>{state.teamPoints[1]}</b>
       </div>
       <hr />
       <div className="score-row">
-        <span>Bid to beat</span>
-        <b>{state.bid ?? state.highBid ?? '—'}</b>
+        <Label long="Bid to beat" short="Bid" />
+        <b>
+          {state.bid ?? state.highBid ?? '—'}
+          {state.bidder !== null && (
+            <span className="bidder-tag"> · {SEAT_NAMES[state.bidder]}</span>
+          )}
+        </b>
       </div>
-      {state.bidder !== null && (
-        <div className="score-row">
-          <span>Bidder</span>
-          <b>{SEAT_NAMES[state.bidder]}</b>
-        </div>
-      )}
       <div className="score-row">
         <span>Trump</span>
         <b>
@@ -33,12 +44,12 @@ export default function Scoreboard({ state }: { state: GameState }) {
             ? '—'
             : state.trumpRevealed
               ? suitChar(state.trumpCard.suit)
-              : 'Hidden 🂠'}
+              : '🂠'}
         </b>
       </div>
       <hr />
       <div className="score-row">
-        <span>Rounds won</span>
+        <Label long="Rounds won" short="Won" />
         <b>
           {state.matchWins[0]} : {state.matchWins[1]}
         </b>

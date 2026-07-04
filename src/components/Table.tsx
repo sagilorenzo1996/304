@@ -46,8 +46,9 @@ export default function Table({ state, onPlayCard, onRequestReveal }: Props) {
 
   const seatPlate = (seat: Seat) => {
     const bidLabel = lastBidLabel(state, seat);
+    const won = state.trickComplete && state.trickWinnerSeat === seat;
     return (
-      <div className={`plate ${activeSeat === seat ? 'active' : ''}`}>
+      <div className={`plate ${activeSeat === seat ? 'active' : ''} ${won ? 'winner' : ''}`}>
         <span className="plate-name">
           {SEAT_NAMES[seat]}
           {seat === 2 && <em> · partner</em>}

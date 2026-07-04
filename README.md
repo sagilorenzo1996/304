@@ -60,10 +60,13 @@ src/
     deck.ts           # 32-card deck, shuffling, seedable RNG
     rules.ts          # trick evaluation & legal-move rules
     engine.ts         # the state machine: bidding → trump → tricks → scoring
-    ai.ts             # bidding/playing AI for the three bot seats
-    game.test.ts      # engine + AI test suite (full-round simulations)
+    ai.ts             # bidding/playing AI with card memory for the bot seats
+    game.test.ts      # engine test suite (full-round simulations)
+    ai.test.ts        # memory/decision tests + AI-vs-baseline strength test
+  audio/
+    sfx.ts            # WebAudio-synthesized sound effects (no assets)
   hooks/
-    useGame.ts        # React reducer + AI/trick-sweep scheduler
+    useGame.ts        # React reducer + AI/trick-sweep/sound scheduler
   components/
     Table.tsx         # felt table, seats, hands, reveal button
     TrickArea.tsx     # center of the table with slide/sweep animations
@@ -79,20 +82,36 @@ src/
 
 ## AI overview
 
+- **Card memory** (`buildMemory`) — each bot remembers every card played and
+  which players showed out of which suits, and uses that to detect **boss
+  cards** (cards nothing unseen can beat) and ruff threats.
 - **Bidding** (`chooseBid`) — scores the strongest suit of the first four
   cards (card points + length bonus, discounted without the J/9) and raises
   in minimum steps while the hand justifies it.
 - **Trump choice** (`chooseTrumpCard`) — picks the strongest suit and conceals
   its *lowest* card, keeping the big trumps in hand.
-- **Play** (`choosePlay`) — follows suit with the cheapest winning card,
-  throws 7s/8s when it cannot win, feeds point cards (10s, Aces) to a partner
-  who has the trick locked up, requests the trump reveal when void with a
-  strong side suit, and trumps in on point-rich tricks once the trump is out.
+- **Play** (`choosePlay`) — cashes boss cards, draws trumps for the bidding
+  side, wins with the cheapest card that actually sticks, refuses to waste
+  high cards on tricks it cannot lock up, feeds point cards (10s, Aces) to a
+  partner whose card has become boss, avoids leading suits a known-void
+  opponent can ruff, requests the trump reveal when void with a strong side
+  suit, and trumps in on point-rich tricks once the trump is out.
 - The AI is information-honest: only the bidder knows the trump before the
-  reveal, and nobody looks at hidden hands.
+  reveal, and nobody looks at hidden hands. A regression test verifies the
+  AI clearly outscores a naive baseline team over 40 deals.
+
+## Sound & mobile
+
+- All sound effects (card flicks, deal riffle, bid/pass, trick chime, trump
+  reveal, round win/lose) are synthesized with the **Web Audio API** — no
+  audio assets. The 🔊 button (top right) mutes them; the choice persists in
+  `localStorage`.
+- The layout is fully responsive: cards scale with the viewport, and on
+  phones (or short landscape screens) the scoreboard collapses into a slim
+  strip along the top. Animations respect `prefers-reduced-motion`.
 
 ## Roadmap (later phases)
 
 - Match play to a target of game points, kaput/double-kaput bonuses
 - Online multiplayer (the pure engine is transport-ready)
-- Sound effects, richer card art, mobile layout polish
+- Richer card art and table themes

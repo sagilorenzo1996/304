@@ -1,4 +1,5 @@
 import BiddingModal from './components/BiddingModal';
+import MuteButton from './components/MuteButton';
 import RoundEndModal from './components/RoundEndModal';
 import Scoreboard from './components/Scoreboard';
 import Table from './components/Table';
@@ -20,6 +21,7 @@ export default function App() {
         onRequestReveal={() => dispatch({ type: 'REVEAL', seat: HUMAN })}
       />
       <Scoreboard state={state} />
+      <MuteButton />
       {humanBidding && (
         <BiddingModal state={state} onBid={(bid) => dispatch({ type: 'BID', seat: HUMAN, bid })} />
       )}
