@@ -2,10 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { chooseBid, choosePlay, chooseTrumpCard } from './ai';
 import { buildDeck, mulberry32, TOTAL_POINTS } from './deck';
 import {
+  canRequestReveal,
   collectTrick,
   createRound,
   GameState,
   MIN_BID,
+  nextRound,
   placeBid,
   playCard,
   requestReveal,
@@ -171,6 +173,95 @@ describe('trump reveal', () => {
       }
     }
     throw new Error('no follow-capable seat found across seeds');
+  });
+});
+
+describe('game modes', () => {
+  it('open mode reveals the trump immediately and gives the bidder a full 8-card hand', () => {
+    let s = createRound(3, [0, 0], 1, mulberry32(1), 'open');
+    s = placeBid(s, 0, MIN_BID);
+    s = placeBid(s, 1, null);
+    s = placeBid(s, 2, null);
+    s = placeBid(s, 3, null);
+    s = selectTrump(s, s.hands[0][0].id);
+    expect(s.trumpRevealed).toBe(true);
+    expect(s.hands[0].length).toBe(8);
+    expect(canRequestReveal(s, 1)).toBe(false); // nothing left to reveal
+  });
+
+  it('blind mode never allows a reveal request', () => {
+    for (let seed = 1; seed < 40; seed++) {
+      let s = createRound(3, [0, 0], 1, mulberry32(seed), 'blind');
+      s = placeBid(s, 0, MIN_BID);
+      s = placeBid(s, 1, null);
+      s = placeBid(s, 2, null);
+      s = placeBid(s, 3, null);
+      s = selectTrump(s, chooseTrumpCard(s, 0));
+      s = playCard(s, s.turn, s.hands[s.turn][0].id);
+      const ledSuit = s.currentTrick[0].card.suit;
+      const seat = s.turn;
+      if (s.hands[seat].every((c) => c.suit !== ledSuit)) {
+        expect(canRequestReveal(s, seat)).toBe(false);
+        expect(() => requestReveal(s, seat)).toThrow();
+        return;
+      }
+    }
+    throw new Error('no void seat found across seeds');
+  });
+
+  it('completes full blind-mode rounds via the automatic last-trick reveal', () => {
+    for (let seed = 1; seed <= 20; seed++) {
+      const rng = mulberry32(seed);
+      let s = createRound((seed % 4) as Seat, [0, 0], 1, rng, 'blind');
+      let forced = false;
+      while (s.phase === 'bidding') {
+        const bid = forced ? chooseBid(s, s.bidTurn) : MIN_BID;
+        forced = true;
+        s = placeBid(s, s.bidTurn, bid, rng);
+      }
+      s = selectTrump(s, chooseTrumpCard(s, s.bidder as Seat));
+
+      let guard = 0;
+      while (s.phase === 'playing' && guard++ < 200) {
+        if (s.trickComplete) {
+          s = collectTrick(s);
+          continue;
+        }
+        const move = choosePlay(s, s.turn);
+        s = move.action === 'reveal' ? requestReveal(s, s.turn) : playCard(s, s.turn, move.cardId);
+      }
+
+      expect(s.phase).toBe('roundEnd');
+      expect(s.tricksPlayed).toBe(8);
+      expect(s.teamPoints[0] + s.teamPoints[1]).toBe(304);
+    }
+  });
+
+  it('carries the mode through a redeal and into the next round', () => {
+    let s = createRound(3, [0, 0], 1, mulberry32(1), 'blind');
+    for (let i = 0; i < 4; i++) s = placeBid(s, s.bidTurn, null, mulberry32(2));
+    expect(s.phase).toBe('bidding'); // redealt
+    expect(s.mode).toBe('blind');
+
+    const rng = mulberry32(3);
+    let forced = false;
+    while (s.phase === 'bidding') {
+      const bid = forced ? chooseBid(s, s.bidTurn) : MIN_BID;
+      forced = true;
+      s = placeBid(s, s.bidTurn, bid, rng);
+    }
+    s = selectTrump(s, chooseTrumpCard(s, s.bidder as Seat));
+    let guard = 0;
+    while (s.phase === 'playing' && guard++ < 200) {
+      if (s.trickComplete) {
+        s = collectTrick(s);
+        continue;
+      }
+      const move = choosePlay(s, s.turn);
+      s = move.action === 'reveal' ? requestReveal(s, s.turn) : playCard(s, s.turn, move.cardId);
+    }
+    s = nextRound(s, mulberry32(4));
+    expect(s.mode).toBe('blind');
   });
 });
 

@@ -21,6 +21,7 @@ const played = (seat: Seat, suit: Suit, rank: Rank): PlayedCard => ({ seat, card
 function playState(over: Partial<GameState>): GameState {
   return {
     phase: 'playing',
+    mode: 'classic',
     round: 1,
     dealer: 3,
     hands: [[], [], [], []],

@@ -6,7 +6,15 @@
  * It does, however, remember everything that has legitimately been seen —
  * played cards and who showed out of which suit — via `buildMemory`.
  */
-import { effectiveTrump, GameState, isValidBid, MIN_BID, BID_STEP, trumpSuitOf } from './engine';
+import {
+  canRequestReveal,
+  effectiveTrump,
+  GameState,
+  isValidBid,
+  MIN_BID,
+  BID_STEP,
+  trumpSuitOf,
+} from './engine';
 import { currentWinner, isVoidInLedSuit, legalMoves, trickPoints } from './rules';
 import {
   Card,
@@ -262,7 +270,7 @@ export function choosePlay(state: GameState, seat: Seat): AiMove {
   const voidInLed = isVoidInLedSuit(hand, trick);
 
   // Consider asking for the trump reveal when unable to follow suit.
-  if (voidInLed && !state.trumpRevealed) {
+  if (voidInLed && canRequestReveal(state, seat)) {
     const groups = bySuit(hand);
     const wantsReveal = isBidder
       ? // The bidder knows the trump; reveal only when actually holding

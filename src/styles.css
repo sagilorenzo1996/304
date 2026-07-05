@@ -689,6 +689,40 @@ body {
   gap: 10px;
 }
 
+.mode-picker {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.mode-option {
+  border: 1px solid rgba(232, 200, 119, 0.35);
+  background: transparent;
+  color: #cfe3d2;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.mode-option:hover {
+  border-color: var(--gold);
+}
+
+.mode-option.active {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: #3c2a05;
+}
+
+.mode-description {
+  min-height: 2.4em;
+}
+
 .modal.how-to-play {
   text-align: left;
 }
