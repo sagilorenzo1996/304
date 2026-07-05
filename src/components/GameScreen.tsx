@@ -24,6 +24,7 @@ export default function GameScreen({ initialState }: Props) {
         state={state}
         onPlayCard={(cardId, guess) => dispatch({ type: 'PLAY', seat: HUMAN, cardId, guess })}
         onRequestReveal={() => dispatch({ type: 'REVEAL', seat: HUMAN })}
+        onSubmitHiddenTrump={() => dispatch({ type: 'SUBMIT_HIDDEN_TRUMP', seat: HUMAN })}
       />
       <Scoreboard state={state} />
       <MuteButton />

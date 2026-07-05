@@ -11,10 +11,13 @@ export type Phase = 'bidding' | 'trumpSelection' | 'playing' | 'roundEnd';
 
 /**
  * classic — trump stays concealed; any void player may request the reveal.
- * blind   — nobody may request a reveal, not even the bidder. Any void
- *           seat must instead submit a face-down guess (see canGuessTrump)
- *           rather than an ordinary open play, or wait for the forced
- *           reveal on the last trick.
+ * blind   — nobody may request a reveal. Any void seat must instead play
+ *           its card face-down (see canGuessTrump) rather than an ordinary
+ *           open play; the bidder alone also has the option to submit the
+ *           sequestered trump card itself (see canSubmitHiddenTrump) as a
+ *           deliberate early reveal. Either way, a reveal only becomes
+ *           known once the trick it happened in is fully resolved, so
+ *           nobody still to act in that trick gets early information.
  * open    — trump is revealed to everyone the instant it is set.
  */
 export type GameMode = 'classic' | 'blind' | 'open';
@@ -29,7 +32,7 @@ export const GAME_MODES: { id: GameMode; label: string; description: string }[] 
     id: 'blind',
     label: 'Blind',
     description:
-      'Nobody may request the trump reveal. Anyone void in the led suit — including the bidder — must play a card face-down; it reveals the trump if it matches, or stays hidden forever if it doesn’t.',
+      'Nobody may request the trump reveal. Anyone void in the led suit must play a card face-down — it reveals the trump if it matches, or stays hidden forever if it doesn’t. The bidder alone may instead submit the sequestered trump card itself as a deliberate reveal. Either way, a reveal is only announced once the trick it happened in ends.',
   },
   {
     id: 'open',
@@ -77,6 +80,8 @@ export interface GameState {
   trumpCard: Card | null; // the concealed indicator card
   trumpRevealed: boolean;
   revealSeat: Seat | null;
+  /** Seats whose face-down play this trick will expose the trump once the trick ends. */
+  pendingReveals: Seat[];
 
   // Trick play
   leader: Seat;
@@ -137,6 +142,7 @@ export function createRound(
     trumpCard: null,
     trumpRevealed: false,
     revealSeat: null,
+    pendingReveals: [],
     leader: firstToBid,
     turn: firstToBid,
     currentTrick: [],
@@ -263,16 +269,23 @@ export function canRequestReveal(state: GameState, seat: Seat): boolean {
 /** Flip the concealed trump card face up and return it to the bidder's hand. */
 export function requestReveal(state: GameState, seat: Seat): GameState {
   if (!canRequestReveal(state, seat)) throw new Error('Trump reveal is not allowed right now');
-  return doReveal(structuredClone(state), seat);
+  const s = doReveal(structuredClone(state), seat);
+  s.message = `${SEAT_NAMES[seat]} asks for the trump — it is ${suitWord(s.trumpCard!.suit)}!`;
+  return s;
 }
 
-function doReveal(s: GameState, seat: Seat): GameState {
+/**
+ * Flip the trump face up. `consumesTrumpCard` is true when the card that
+ * triggered this reveal *is* the sequestered trump card itself (see
+ * `submitHiddenTrump`) — in that case it has already been played into the
+ * trick, so it must not also be returned to the bidder's hand.
+ */
+function doReveal(s: GameState, seat: Seat, consumesTrumpCard = false): GameState {
   s.trumpRevealed = true;
   s.revealSeat = seat;
-  if (s.bidder !== null && s.trumpCard) {
+  if (!consumesTrumpCard && s.bidder !== null && s.trumpCard) {
     s.hands[s.bidder].push(s.trumpCard);
   }
-  s.message = `${SEAT_NAMES[seat]} asks for the trump — it is ${suitWord(s.trumpCard!.suit)}!`;
   return s;
 }
 
@@ -298,13 +311,16 @@ function autoRevealIfStuck(s: GameState): GameState {
 }
 
 /**
- * In blind mode, a void seat — including the bidder — must play its card
- * face-down instead of an ordinary open play (see the mandatory check in
- * `playCard`). If the card's suit matches the trump, it is revealed to the
- * whole table; if not, the card still resolves the trick normally but its
- * face stays concealed from everyone else for the rest of the game. The
- * bidder already knows the suit, so for them this is how they choose to
- * reveal early; everyone else is genuinely guessing.
+ * In blind mode, a void seat must play its card face-down instead of an
+ * ordinary open play (see the mandatory check in `playCard`). If the
+ * card's suit matches the trump, it is revealed; if not, the card still
+ * resolves the trick normally but its face stays concealed from everyone
+ * else for the rest of the game. This is a genuine guess for everyone —
+ * including the bidder, whose own hand cards never expose the trump this
+ * way even when they happen to share its suit (see `playCard`); the
+ * bidder's deliberate reveal is `submitHiddenTrump` instead. A reveal
+ * triggered here is only announced once the trick it happened in ends
+ * (see `finishTrick`), so nobody still to act in that trick learns early.
  */
 export function canGuessTrump(state: GameState, seat: Seat): boolean {
   return (
@@ -316,6 +332,33 @@ export function canGuessTrump(state: GameState, seat: Seat): boolean {
     state.currentTrick.length > 0 &&
     isVoidInLedSuit(state.hands[seat], state.currentTrick)
   );
+}
+
+/**
+ * Only the bidder, and only in blind mode, may submit the sequestered
+ * trump card itself in place of a hand card while void — a deliberate
+ * early reveal, as opposed to playing an ordinary hand card face-down
+ * (see canGuessTrump), which never reveals anything for the bidder no
+ * matter its suit.
+ */
+export function canSubmitHiddenTrump(state: GameState, seat: Seat): boolean {
+  return state.bidder === seat && canGuessTrump(state, seat);
+}
+
+/**
+ * The bidder plays their sequestered trump card directly, without it ever
+ * passing through their hand. This always exposes the trump — but, like
+ * every reveal in blind mode, only once the trick it happened in ends.
+ */
+export function submitHiddenTrump(state: GameState, seat: Seat): GameState {
+  if (!canSubmitHiddenTrump(state, seat)) {
+    throw new Error('Cannot submit the hidden trump right now');
+  }
+  const s = structuredClone(state);
+  const card = s.trumpCard as Card;
+  s.currentTrick.push({ seat, card, concealed: true });
+  s.pendingReveals.push(seat);
+  return finishTrick(s, seat);
 }
 
 export function playCard(state: GameState, seat: Seat, cardId: string, guess = false): GameState {
@@ -338,22 +381,45 @@ export function playCard(state: GameState, seat: Seat, cardId: string, guess = f
   }
 
   s.hands[seat] = hand.filter((c) => c.id !== cardId);
-  const guessedTrump = guess && card.suit === trumpSuitOf(s);
-  s.currentTrick.push({ seat, card, concealed: guess && !guessedTrump });
+  // The bidder already knows the trump, so their own hand cards never
+  // count as a guess-hit — only submitHiddenTrump reveals for them.
+  const guessedTrump = guess && seat !== s.bidder && card.suit === trumpSuitOf(s);
+  s.currentTrick.push({ seat, card, concealed: guess });
+  if (guessedTrump) s.pendingReveals.push(seat);
 
-  if (guessedTrump) {
-    doReveal(s, seat);
-    s.message = `${SEAT_NAMES[seat]}’s hidden card exposes the trump — it is ${suitWord(
-      s.trumpCard!.suit,
-    )}!`;
-  }
+  return finishTrick(s, seat);
+}
 
+/**
+ * Complete the trick if this was its fourth card — applying any reveals
+ * earned this trick only now, so they were never visible to a seat still
+ * to act in the same trick — or hand off to the next seat.
+ */
+function finishTrick(s: GameState, seat: Seat): GameState {
   if (s.currentTrick.length === 4) {
+    const revealMessages: string[] = [];
+    if (s.pendingReveals.length > 0) {
+      // Only true when the bidder's own submitted trump card is what
+      // triggered the reveal — it's already in the trick and must not
+      // also be pushed back into their hand.
+      const trumpAlreadyPlayed = s.currentTrick.some((p) => p.card.id === s.trumpCard?.id);
+      for (const revealer of s.pendingReveals) {
+        const entry = s.currentTrick.find((p) => p.seat === revealer);
+        if (entry) entry.concealed = false;
+        doReveal(s, revealer, trumpAlreadyPlayed);
+        revealMessages.push(
+          `${SEAT_NAMES[revealer]}’s hidden card exposes the trump — it is ${suitWord(
+            s.trumpCard!.suit,
+          )}!`,
+        );
+      }
+      s.pendingReveals = [];
+    }
     s.trickComplete = true;
     s.trickWinnerSeat = trickWinner(s.currentTrick, effectiveTrump(s));
     const pts = trickPoints(s.currentTrick);
     const trickMsg = `${SEAT_NAMES[s.trickWinnerSeat]} takes the trick (+${pts} points).`;
-    s.message = guessedTrump ? `${s.message} ${trickMsg}` : trickMsg;
+    s.message = [...revealMessages, trickMsg].join(' ');
     return s;
   }
   s.turn = nextSeat(seat);

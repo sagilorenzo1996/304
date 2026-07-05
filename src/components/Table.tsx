@@ -1,4 +1,4 @@
-import { canGuessTrump, canRequestReveal, GameState } from '../game/engine';
+import { canGuessTrump, canRequestReveal, canSubmitHiddenTrump, GameState } from '../game/engine';
 import { legalMoves } from '../game/rules';
 import { Card, Seat, SEAT_NAMES, cardPower } from '../game/types';
 import { HUMAN } from '../hooks/useGame';
@@ -9,6 +9,7 @@ interface Props {
   state: GameState;
   onPlayCard: (cardId: string, guess?: boolean) => void;
   onRequestReveal: () => void;
+  onSubmitHiddenTrump: () => void;
 }
 
 /** Sort for display: alternate suit colors, highest rank first within a suit. */
@@ -29,13 +30,14 @@ function lastBidLabel(state: GameState, seat: Seat): string | null {
   return null;
 }
 
-export default function Table({ state, onPlayCard, onRequestReveal }: Props) {
+export default function Table({ state, onPlayCard, onRequestReveal, onSubmitHiddenTrump }: Props) {
   const humanTurn =
     state.phase === 'playing' && state.turn === HUMAN && !state.trickComplete;
   const legalIds = humanTurn
     ? new Set(legalMoves(state.hands[HUMAN], state.currentTrick).map((c) => c.id))
     : new Set<string>();
   const showReveal = canRequestReveal(state, HUMAN);
+  const showSubmitTrump = canSubmitHiddenTrump(state, HUMAN);
   const mustGuess = canGuessTrump(state, HUMAN);
 
   const activeSeat =
@@ -101,9 +103,14 @@ export default function Table({ state, onPlayCard, onRequestReveal }: Props) {
             Reveal Trump 🂠
           </button>
         )}
+        {showSubmitTrump && (
+          <button className="reveal-btn" onClick={onSubmitHiddenTrump}>
+            Submit hidden trump 🂠
+          </button>
+        )}
         {mustGuess && (
           <div className="reveal-btn active" style={{ cursor: 'default' }}>
-            Void — this card plays face-down 🂠
+            {showSubmitTrump ? 'Or play a hand card face-down 🂠' : 'Void — this card plays face-down 🂠'}
           </div>
         )}
         <div className="hand">

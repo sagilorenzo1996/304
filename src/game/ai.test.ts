@@ -10,12 +10,21 @@ import {
   playCard,
   requestReveal,
   selectTrump,
+  submitHiddenTrump,
 } from './engine';
 import { legalMoves, PlayedCard } from './rules';
 import { Card, Rank, Seat, Suit, teamOf } from './types';
+import type { AiMove } from './ai';
 
 const card = (suit: Suit, rank: Rank): Card => ({ id: `${suit}-${rank}`, suit, rank });
 const played = (seat: Seat, suit: Suit, rank: Rank): PlayedCard => ({ seat, card: card(suit, rank) });
+
+/** Apply an AI-chosen move to the state, dispatching to the right engine call. */
+function applyMove(s: GameState, seat: Seat, move: AiMove): GameState {
+  if (move.action === 'reveal') return requestReveal(s, seat);
+  if (move.action === 'submitTrump') return submitHiddenTrump(s, seat);
+  return playCard(s, seat, move.cardId, move.action === 'guess');
+}
 
 /** A hand-built mid-round state for targeted AI decision tests. */
 function playState(over: Partial<GameState>): GameState {
@@ -36,6 +45,7 @@ function playState(over: Partial<GameState>): GameState {
     trumpCard: card('C', '7'),
     trumpRevealed: false,
     revealSeat: null,
+    pendingReveals: [],
     leader: 0,
     turn: 0,
     currentTrick: [],
@@ -204,8 +214,7 @@ describe('AI strength', () => {
           continue;
         }
         if (teamOf(s.turn) === 0) {
-          const move = choosePlay(s, s.turn);
-          s = move.action === 'reveal' ? requestReveal(s, s.turn) : playCard(s, s.turn, move.cardId);
+          s = applyMove(s, s.turn, choosePlay(s, s.turn));
         } else {
           s = playCard(s, s.turn, naiveMove(s));
         }
@@ -230,8 +239,7 @@ describe('trick history', () => {
         s = collectTrick(s);
         continue;
       }
-      const move = choosePlay(s, s.turn);
-      s = move.action === 'reveal' ? requestReveal(s, s.turn) : playCard(s, s.turn, move.cardId);
+      s = applyMove(s, s.turn, choosePlay(s, s.turn));
     }
     expect(s.trickHistory.length).toBe(8);
     expect(s.trickHistory.every((t) => t.length === 4)).toBe(true);
