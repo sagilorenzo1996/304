@@ -229,7 +229,7 @@ describe('game modes', () => {
         }
         if (s.turn === 0 && s.currentTrick.length > 0) break;
         const move = legalMoves(s.hands[s.turn], s.currentTrick)[0];
-        s = playCard(s, s.turn, move.id);
+        s = playCard(s, s.turn, move.id, canGuessTrump(s, s.turn));
       }
       const trumpCardInHand = s.hands[0].find((c) => c.suit === s.trumpCard!.suit);
       if (
@@ -300,6 +300,29 @@ describe('game modes', () => {
     classic = selectTrump(classic, chooseTrumpCard(classic, 0));
     classic = playCard(classic, classic.turn, classic.hands[classic.turn][0].id);
     expect(canGuessTrump(classic, classic.turn)).toBe(false);
+  });
+
+  it('forces a face-down guess when void in blind mode, rejecting an ordinary face-up play', () => {
+    for (let seed = 1; seed < 60; seed++) {
+      let s = createRound(3, [0, 0], 1, mulberry32(seed), 'blind');
+      s = placeBid(s, 0, MIN_BID);
+      s = placeBid(s, 1, null);
+      s = placeBid(s, 2, null);
+      s = placeBid(s, 3, null);
+      s = selectTrump(s, chooseTrumpCard(s, 0)); // bidder is seat 0
+      s = playCard(s, s.turn, s.hands[s.turn][0].id);
+      const ledSuit = s.currentTrick[0].card.suit;
+      const seat = s.turn;
+      if (!s.hands[seat].every((c) => c.suit !== ledSuit)) continue;
+
+      expect(canGuessTrump(s, seat)).toBe(true);
+      const cardId = s.hands[seat][0].id;
+      expect(() => playCard(s, seat, cardId)).toThrow();
+      expect(() => playCard(s, seat, cardId, false)).toThrow();
+      expect(() => playCard(s, seat, cardId, true)).not.toThrow();
+      return;
+    }
+    throw new Error('no void seat found across seeds');
   });
 
   it('completes full blind-mode rounds regardless of when the trump is revealed', () => {

@@ -12,8 +12,9 @@ export type Phase = 'bidding' | 'trumpSelection' | 'playing' | 'roundEnd';
 /**
  * classic — trump stays concealed; any void player may request the reveal.
  * blind   — nobody may request a reveal, not even the bidder. Any void
- *           seat may instead submit a face-down guess (see canGuessTrump),
- *           or wait for the forced reveal on the last trick.
+ *           seat must instead submit a face-down guess (see canGuessTrump)
+ *           rather than an ordinary open play, or wait for the forced
+ *           reveal on the last trick.
  * open    — trump is revealed to everyone the instant it is set.
  */
 export type GameMode = 'classic' | 'blind' | 'open';
@@ -28,7 +29,7 @@ export const GAME_MODES: { id: GameMode; label: string; description: string }[] 
     id: 'blind',
     label: 'Blind',
     description:
-      'Nobody may request the trump reveal. Anyone void in the led suit — including the bidder — may only play a card face-down; it reveals the trump if it matches, or stays hidden forever if it doesn’t.',
+      'Nobody may request the trump reveal. Anyone void in the led suit — including the bidder — must play a card face-down; it reveals the trump if it matches, or stays hidden forever if it doesn’t.',
   },
   {
     id: 'open',
@@ -297,13 +298,13 @@ function autoRevealIfStuck(s: GameState): GameState {
 }
 
 /**
- * In blind mode, a void seat — including the bidder — may play a card
- * face-down instead of an ordinary open play. If the card's suit matches
- * the trump, it is revealed to the whole table; if not, the card still
- * resolves the trick normally but its face stays concealed from everyone
- * else for the rest of the game. The bidder already knows the suit, so for
- * them this is how they choose to reveal early; everyone else is genuinely
- * guessing.
+ * In blind mode, a void seat — including the bidder — must play its card
+ * face-down instead of an ordinary open play (see the mandatory check in
+ * `playCard`). If the card's suit matches the trump, it is revealed to the
+ * whole table; if not, the card still resolves the trick normally but its
+ * face stays concealed from everyone else for the rest of the game. The
+ * bidder already knows the suit, so for them this is how they choose to
+ * reveal early; everyone else is genuinely guessing.
  */
 export function canGuessTrump(state: GameState, seat: Seat): boolean {
   return (
@@ -323,6 +324,9 @@ export function playCard(state: GameState, seat: Seat, cardId: string, guess = f
   if (seat !== state.turn) throw new Error(`It is not seat ${seat}'s turn`);
   if (guess && !canGuessTrump(state, seat)) {
     throw new Error('Cannot play a hidden trump guess right now');
+  }
+  if (!guess && canGuessTrump(state, seat)) {
+    throw new Error('Void in blind mode before the reveal: the card must be played face-down');
   }
 
   const s = structuredClone(state);
