@@ -5,7 +5,7 @@
  */
 import { buildDeck, Rng, shuffle } from './deck';
 import { legalMoves, isVoidInLedSuit, PlayedCard, trickPoints, trickWinner } from './rules';
-import { Card, Seat, SEAT_NAMES, Suit, Team, nextSeat, teamOf } from './types';
+import { BLIND_RANKS, Card, Seat, SEAT_NAMES, Suit, Team, nextSeat, teamOf } from './types';
 
 export type Phase = 'bidding' | 'trumpSelection' | 'playing' | 'roundEnd';
 
@@ -32,7 +32,7 @@ export const GAME_MODES: { id: GameMode; label: string; description: string }[] 
     id: 'blind',
     label: 'Blind',
     description:
-      'Nobody may request the trump reveal. Anyone void in the led suit must play a card face-down — it reveals the trump if it matches, or stays hidden forever if it doesn’t. The bidder alone may instead submit the sequestered trump card itself as a deliberate reveal. Either way, a reveal is only announced once the trick it happened in ends.',
+      'Played with a stripped 24-card deck (no 7s or 8s) — 6 cards a hand, dealt 3 at a time. Nobody may request the trump reveal. Anyone void in the led suit must play a card face-down — it reveals the trump if it matches, or stays hidden forever if it doesn’t. The bidder alone may instead submit the sequestered trump card itself as a deliberate reveal. Either way, a reveal is only announced once the trick it happened in ends.',
   },
   {
     id: 'open',
@@ -44,6 +44,9 @@ export const GAME_MODES: { id: GameMode; label: string; description: string }[] 
 export const MIN_BID = 200;
 export const MAX_BID = 304;
 export const BID_STEP = 10;
+
+/** Cards dealt per player in each of the two deals (doubled for the full hand size). */
+const DEAL_CHUNK: Record<GameMode, number> = { classic: 4, open: 4, blind: 3 };
 
 export interface BidEntry {
   seat: Seat;
@@ -90,6 +93,7 @@ export interface GameState {
   trickComplete: boolean;
   trickWinnerSeat: Seat | null;
   tricksPlayed: number;
+  totalTricks: number; // 8 normally, 6 in blind mode's stripped deck
   trickHistory: PlayedCard[][]; // completed tricks, in play order
 
   // Scoring
@@ -109,7 +113,11 @@ export function effectiveTrump(state: GameState): Suit | null {
   return state.trumpRevealed ? trumpSuitOf(state) : null;
 }
 
-/** Deal the first 4 cards to each player and open the bidding. */
+/**
+ * Deal the first cards to each player and open the bidding — 4 each from
+ * the full 32-card deck normally, or 3 each from blind mode's stripped
+ * 24-card deck (no 7s or 8s).
+ */
 export function createRound(
   dealer: Seat,
   matchWins: [number, number],
@@ -117,11 +125,12 @@ export function createRound(
   rng: Rng = Math.random,
   mode: GameMode = 'classic',
 ): GameState {
-  const deck = shuffle(buildDeck(), rng);
+  const chunk = DEAL_CHUNK[mode];
+  const deck = shuffle(mode === 'blind' ? buildDeck(BLIND_RANKS) : buildDeck(), rng);
   const hands: Card[][] = [[], [], [], []];
   let seat = nextSeat(dealer);
   for (let i = 0; i < 4; i++) {
-    hands[seat] = deck.slice(i * 4, i * 4 + 4);
+    hands[seat] = deck.slice(i * chunk, i * chunk + chunk);
     seat = nextSeat(seat);
   }
   const firstToBid = nextSeat(dealer);
@@ -131,7 +140,7 @@ export function createRound(
     round,
     dealer,
     hands,
-    pending: deck.slice(16),
+    pending: deck.slice(4 * chunk),
     passed: [false, false, false, false],
     bidHistory: [],
     highBid: null,
@@ -149,6 +158,7 @@ export function createRound(
     trickComplete: false,
     trickWinnerSeat: null,
     tricksPlayed: 0,
+    totalTricks: chunk * 2,
     trickHistory: [],
     teamPoints: [0, 0],
     matchWins,
@@ -211,8 +221,8 @@ export function placeBid(
 
 /**
  * The auction winner places one card from their hand face down; its suit is
- * the (secret) trump. The remaining 16 cards are then dealt out and play
- * starts with the player left of the dealer.
+ * the (secret) trump. The remaining held-back cards are then dealt out and
+ * play starts with the player left of the dealer.
  */
 export function selectTrump(state: GameState, cardId: string): GameState {
   if (state.phase !== 'trumpSelection') throw new Error('Not in the trump-selection phase');
@@ -225,10 +235,11 @@ export function selectTrump(state: GameState, cardId: string): GameState {
   if (idx === -1) throw new Error('Trump card must come from the bidder’s hand');
   [s.trumpCard] = hand.splice(idx, 1);
 
-  // Second deal: 4 more cards each, starting left of the dealer.
+  // Second deal: the same chunk size again, starting left of the dealer.
+  const chunk = DEAL_CHUNK[s.mode];
   let seat = nextSeat(s.dealer);
   for (let i = 0; i < 4; i++) {
-    s.hands[seat].push(...s.pending.slice(i * 4, i * 4 + 4));
+    s.hands[seat].push(...s.pending.slice(i * chunk, i * chunk + chunk));
     seat = nextSeat(seat);
   }
   s.pending = [];
@@ -442,7 +453,7 @@ export function collectTrick(state: GameState): GameState {
   s.leader = winner;
   s.turn = winner;
 
-  if (s.tricksPlayed === 8) {
+  if (s.tricksPlayed === s.totalTricks) {
     const bidderTeam = teamOf(s.bidder as Seat);
     const bidderTeamPoints = s.teamPoints[bidderTeam];
     const success = bidderTeamPoints >= (s.bid as number);

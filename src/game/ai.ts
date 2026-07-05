@@ -19,7 +19,9 @@ import {
 } from './engine';
 import { currentWinner, isVoidInLedSuit, legalMoves, trickPoints } from './rules';
 import {
+  BLIND_RANKS,
   Card,
+  Rank,
   RANK_POWER,
   RANKS,
   Seat,
@@ -47,6 +49,8 @@ export interface Memory {
   seen: Set<string>;
   /** voids[seat][suit] — that seat has shown out of that suit. */
   voids: Record<Suit, boolean>[];
+  /** The ranks actually in play this round (blind mode drops 7s and 8s). */
+  ranks: Rank[];
 }
 
 /** Everything `seat` can legitimately know about the deal so far. */
@@ -70,7 +74,7 @@ export function buildMemory(state: GameState, seat: Seat): Memory {
   if (state.trumpCard && (state.trumpRevealed || seat === state.bidder)) {
     seen.add(state.trumpCard.id);
   }
-  return { seen, voids };
+  return { seen, voids, ranks: state.mode === 'blind' ? BLIND_RANKS : RANKS };
 }
 
 /**
@@ -78,14 +82,14 @@ export function buildMemory(state: GameState, seat: Seat): Memory {
  * else can beat it in that suit (it may still fall to a trump).
  */
 export function isBoss(card: Card, mem: Memory): boolean {
-  return RANKS.every(
+  return mem.ranks.every(
     (rank) =>
       RANK_POWER[rank] <= cardPower(card) || mem.seen.has(`${card.suit}-${rank}`),
   );
 }
 
 const unseenInSuit = (suit: Suit, mem: Memory): number =>
-  RANKS.filter((rank) => !mem.seen.has(`${suit}-${rank}`)).length;
+  mem.ranks.filter((rank) => !mem.seen.has(`${suit}-${rank}`)).length;
 
 // ---------------------------------------------------------------------------
 // Bidding

@@ -1,12 +1,12 @@
-import { Card, CARD_POINTS, RANKS, SUITS } from './types';
+import { Card, CARD_POINTS, Rank, RANKS, SUITS } from './types';
 
 export type Rng = () => number;
 
-/** Build the 32-card 304 deck (J, 9, A, 10, K, Q, 8, 7 in each suit). */
-export function buildDeck(): Card[] {
+/** Build a deck from the given ranks in each suit (the full 32-card 304 deck by default). */
+export function buildDeck(ranks: Rank[] = RANKS): Card[] {
   const deck: Card[] = [];
   for (const suit of SUITS) {
-    for (const rank of RANKS) {
+    for (const rank of ranks) {
       deck.push({ id: `${suit}-${rank}`, suit, rank });
     }
   }

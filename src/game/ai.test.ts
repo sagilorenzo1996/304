@@ -52,6 +52,7 @@ function playState(over: Partial<GameState>): GameState {
     trickComplete: false,
     trickWinnerSeat: null,
     tricksPlayed: 1,
+    totalTricks: 8,
     trickHistory: [],
     teamPoints: [0, 0],
     matchWins: [0, 0],

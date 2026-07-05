@@ -143,6 +143,27 @@ describe('trump selection and second deal', () => {
     expect(s.phase).toBe('playing');
     expect(s.leader).toBe(0);
   });
+
+  it('blind mode deals a stripped 24-card deck 3 at a time for a 6-card hand', () => {
+    let s = createRound(3, [0, 0], 1, mulberry32(1), 'blind');
+    expect(s.hands.every((h) => h.length === 3)).toBe(true);
+    expect(s.pending.length).toBe(12);
+    expect(s.totalTricks).toBe(6);
+    const allDealt = [...s.hands.flat(), ...s.pending];
+    expect(allDealt.length).toBe(24);
+    expect(allDealt.some((c) => c.rank === '7' || c.rank === '8')).toBe(false);
+
+    s = placeBid(s, 0, MIN_BID);
+    s = placeBid(s, 1, null);
+    s = placeBid(s, 2, null);
+    s = placeBid(s, 3, null);
+    const chosen = s.hands[0][0];
+    s = selectTrump(s, chosen.id);
+    expect(s.trumpCard?.id).toBe(chosen.id);
+    expect(s.hands[0].length).toBe(5); // bidder plays one short until reveal
+    expect(s.hands[1].length).toBe(6);
+    expect(s.hands.flat().some((c) => c.rank === '7' || c.rank === '8')).toBe(false);
+  });
 });
 
 describe('trump reveal', () => {
@@ -245,9 +266,10 @@ describe('game modes', () => {
         s.phase !== 'playing' ||
         s.turn !== 0 ||
         s.currentTrick.length === 0 ||
+        s.trumpRevealed ||
         s.hands[0].some((c) => c.suit === s.currentTrick[0].card.suit)
       ) {
-        continue; // bidder can follow suit, or this deal never reached the scenario
+        continue; // bidder can follow suit, trump is already revealed, or this deal never reached the scenario
       }
 
       expect(canRequestReveal(s, 0)).toBe(false);
@@ -307,10 +329,11 @@ describe('game modes', () => {
         s.phase !== 'playing' ||
         s.turn !== 0 ||
         s.currentTrick.length === 0 ||
+        s.trumpRevealed ||
         s.hands[0].some((c) => c.suit === s.currentTrick[0].card.suit) ||
         !trumpCardInHand
       ) {
-        continue; // bidder can follow suit, has no trump left in hand, or never reached the scenario
+        continue; // bidder can follow suit, trump already revealed, has no trump left in hand, or never reached the scenario
       }
 
       expect(canGuessTrump(s, 0)).toBe(true);
@@ -435,7 +458,7 @@ describe('game modes', () => {
       }
 
       expect(s.phase).toBe('roundEnd');
-      expect(s.tricksPlayed).toBe(8);
+      expect(s.tricksPlayed).toBe(6); // blind mode's stripped 24-card deck: 6 tricks
       expect(s.teamPoints[0] + s.teamPoints[1]).toBe(304);
     }
   });
