@@ -13,7 +13,7 @@ import {
   effectiveTrump,
   GameState,
   isValidBid,
-  MIN_BID,
+  minBidFor,
   BID_STEP,
   trumpSuitOf,
 } from './engine';
@@ -129,7 +129,7 @@ export function chooseBid(state: GameState, seat: Seat): number | null {
     .reduce((sum, c) => sum + cardPoints(c), 0);
 
   const willingness = 190 + best + Math.round(sidePoints * 0.3);
-  const need = state.highBid === null ? MIN_BID : state.highBid + BID_STEP;
+  const need = state.highBid === null ? minBidFor(state.mode) : state.highBid + BID_STEP;
   if (need > willingness || !isValidBid(state, need)) return null;
   return need;
 }

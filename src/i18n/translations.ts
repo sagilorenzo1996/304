@@ -29,9 +29,9 @@ export const TRANSLATIONS: Record<Language, Dictionary> = {
     // Game modes
     'mode.classic.label': 'Classic',
     'mode.classic.description': 'Trump stays hidden until a player void in the led suit asks for it.',
-    'mode.blind.label': 'Blind',
+    'mode.blind.label': 'Horana',
     'mode.blind.description':
-      'Played with a stripped 24-card deck (no 7s or 8s) — 6 cards a hand, dealt 3 at a time. Nobody may request the trump reveal. Anyone void in the led suit must play a card face-down — it reveals the trump if it matches, or stays hidden forever if it doesn’t. The bidder alone may instead submit the sequestered trump card itself as a deliberate reveal. Either way, a reveal is only announced once the trick it happened in ends.',
+      'Played with a stripped 24-card deck (no 7s or 8s) — 6 cards a hand, dealt 3 at a time, bidding opens at 180. Nobody may request the trump reveal. Anyone void in the led suit must play a card face-down — it reveals the trump if it matches, or stays hidden forever if it doesn’t. The bidder alone may instead submit the sequestered trump card itself as a deliberate reveal. Either way, a reveal is only announced once the trick it happened in ends.',
     'mode.open.label': 'Open',
     'mode.open.description': 'Trump is revealed to everyone the moment the bidder sets it.',
 
@@ -147,9 +147,9 @@ export const TRANSLATIONS: Record<Language, Dictionary> = {
     'mode.classic.label': 'සම්භාව්‍ය',
     'mode.classic.description':
       'නායක කාඩ්පත (ට්‍රම්ප්) සැඟවී පවතින්නේ, ඇරඹූ කාඩ්පත් වර්ගය අතේ නොමැති ක්‍රීඩකයෙකු එය හෙළි කරන ලෙස ඉල්ලා සිටින තෙක් ය.',
-    'mode.blind.label': 'අන්ධ',
+    'mode.blind.label': 'හෝරණ',
     'mode.blind.description':
-      'කාඩ්පත් 24ක සීරුමාරු කළ (7 සහ 8 නොමැති) කට්ටලයකින් ක්‍රීඩා කෙරේ — එක් අයෙකුට කාඩ්පත් 6ක්, වරකට 3 බැගින් බෙදනු ලැබේ. කිසිවෙකුට ට්‍රම්ප් හෙළි කරන ලෙස ඉල්ලා සිටිය නොහැක. ඇරඹූ කාඩ්පත් වර්ගය අතේ නොමැති ඕනෑම අයෙකු කාඩ්පතක් යටිකුරුවට තැබිය යුතුය — එය ට්‍රම්ප් වර්ගයට ගැලපේ නම් ට්‍රම්ප් හෙළි වේ, නැතිනම් එය සදහටම සැඟවී පවතී. ලංසුකරුට පමණක් තමන් වෙන් කරගත් ට්‍රම්ප් කාඩ්පතම ඉදිරිපත් කර දැනුවත්වම එය හෙළි කළ හැක. කෙසේ වුවත්, එම අත අවසන් වූ පසුව පමණක් හෙළිදරව්ව දැනුම් දෙනු ලැබේ.',
+      'කාඩ්පත් 24ක සීරුමාරු කළ (7 සහ 8 නොමැති) කට්ටලයකින් ක්‍රීඩා කෙරේ — එක් අයෙකුට කාඩ්පත් 6ක්, වරකට 3 බැගින් බෙදනු ලැබේ, ලංසු තැබීම 180න් ආරම්භ වේ. කිසිවෙකුට ට්‍රම්ප් හෙළි කරන ලෙස ඉල්ලා සිටිය නොහැක. ඇරඹූ කාඩ්පත් වර්ගය අතේ නොමැති ඕනෑම අයෙකු කාඩ්පතක් යටිකුරුවට තැබිය යුතුය — එය ට්‍රම්ප් වර්ගයට ගැලපේ නම් ට්‍රම්ප් හෙළි වේ, නැතිනම් එය සදහටම සැඟවී පවතී. ලංසුකරුට පමණක් තමන් වෙන් කරගත් ට්‍රම්ප් කාඩ්පතම ඉදිරිපත් කර දැනුවත්වම එය හෙළි කළ හැක. කෙසේ වුවත්, එම අත අවසන් වූ පසුව පමණක් හෙළිදරව්ව දැනුම් දෙනු ලැබේ.',
     'mode.open.label': 'විවෘත',
     'mode.open.description': 'ලංසුකරු ට්‍රම්ප් තීරණය කරන මොහොතේම එය සියලු දෙනාට හෙළි වේ.',
 

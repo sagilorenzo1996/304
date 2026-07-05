@@ -30,6 +30,13 @@ export const MIN_BID = 200;
 export const MAX_BID = 304;
 export const BID_STEP = 10;
 
+/** Blind mode's stripped 24-card deck holds fewer points to fight over, so it opens lower. */
+const MIN_BID_BY_MODE: Record<GameMode, number> = { classic: MIN_BID, open: MIN_BID, blind: 180 };
+
+export function minBidFor(mode: GameMode): number {
+  return MIN_BID_BY_MODE[mode];
+}
+
 /** Cards dealt per player in each of the two deals (doubled for the full hand size). */
 const DEAL_CHUNK: Record<GameMode, number> = { classic: 4, open: 4, blind: 3 };
 
@@ -170,12 +177,14 @@ export function createRound(
     teamPoints: [0, 0],
     matchWins,
     roundResult: null,
-    message: [{ key: 'msg.roundDeals', params: { round, name: playerNames[dealer], minBid: MIN_BID } }],
+    message: [
+      { key: 'msg.roundDeals', params: { round, name: playerNames[dealer], minBid: minBidFor(mode) } },
+    ],
   };
 }
 
 export function isValidBid(state: GameState, bid: number): boolean {
-  if (bid < MIN_BID || bid > MAX_BID) return false;
+  if (bid < minBidFor(state.mode) || bid > MAX_BID) return false;
   if (bid % BID_STEP !== 0 && bid !== MAX_BID) return false;
   return state.highBid === null ? true : bid > state.highBid;
 }

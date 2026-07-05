@@ -9,7 +9,9 @@ import {
   collectTrick,
   createRound,
   GameState,
+  isValidBid,
   MIN_BID,
+  minBidFor,
   nextRound,
   placeBid,
   playCard,
@@ -124,6 +126,28 @@ describe('bidding', () => {
     expect(s.phase).toBe('bidding');
     expect(s.bidHistory.length).toBe(0);
     expect(s.hands.every((h) => h.length === 4)).toBe(true);
+  });
+
+  it('opens blind mode bidding at 180 instead of the usual 200', () => {
+    expect(minBidFor('classic')).toBe(MIN_BID);
+    expect(minBidFor('open')).toBe(MIN_BID);
+    expect(minBidFor('blind')).toBe(180);
+
+    let classic = createRound(3, [0, 0], 1, mulberry32(1), 'classic');
+    expect(isValidBid(classic, 180)).toBe(false); // below classic's 200 floor
+    expect(isValidBid(classic, 190)).toBe(false);
+    expect(() => placeBid(classic, 0, 190)).toThrow();
+    classic = placeBid(classic, 0, MIN_BID);
+    expect(classic.bidHistory[0].bid).toBe(MIN_BID);
+
+    let blind = createRound(3, [0, 0], 1, mulberry32(1), 'blind');
+    expect(isValidBid(blind, 180)).toBe(true);
+    expect(isValidBid(blind, 170)).toBe(false); // still below blind's own floor
+    expect(blind.message).toEqual([
+      { key: 'msg.roundDeals', params: { round: 1, name: blind.playerNames[blind.dealer], minBid: 180 } },
+    ]);
+    blind = placeBid(blind, 0, 180);
+    expect(blind.bidHistory[0].bid).toBe(180);
   });
 });
 

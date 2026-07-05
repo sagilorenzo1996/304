@@ -1,4 +1,4 @@
-import { BID_STEP, GameState, isValidBid, MAX_BID, MIN_BID } from '../game/engine';
+import { BID_STEP, GameState, isValidBid, MAX_BID, minBidFor } from '../game/engine';
 import { HUMAN } from '../hooks/useGame';
 import { useI18n } from '../i18n/LanguageContext';
 import CardView from './CardView';
@@ -11,7 +11,7 @@ interface Props {
 /** Overlay shown while it is the human's turn to bid. */
 export default function BiddingModal({ state, onBid }: Props) {
   const { t } = useI18n();
-  const need = state.highBid === null ? MIN_BID : state.highBid + BID_STEP;
+  const need = state.highBid === null ? minBidFor(state.mode) : state.highBid + BID_STEP;
   const options: number[] = [];
   for (let bid = need; bid <= 300 && options.length < 4; bid += BID_STEP) {
     if (isValidBid(state, bid)) options.push(bid);
@@ -24,7 +24,7 @@ export default function BiddingModal({ state, onBid }: Props) {
         <h2>{t('bid.title')}</h2>
         <p className="modal-sub">
           {state.highBid === null
-            ? t('bid.opensAt', { min: MIN_BID })
+            ? t('bid.opensAt', { min: minBidFor(state.mode) })
             : t('bid.holdsAt', { name: state.playerNames[state.highBidder!], bid: state.highBid })}
         </p>
         <div className="hand-preview">
