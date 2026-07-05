@@ -22,7 +22,7 @@ export default function GameScreen({ initialState }: Props) {
     <>
       <Table
         state={state}
-        onPlayCard={(cardId) => dispatch({ type: 'PLAY', seat: HUMAN, cardId })}
+        onPlayCard={(cardId, guess) => dispatch({ type: 'PLAY', seat: HUMAN, cardId, guess })}
         onRequestReveal={() => dispatch({ type: 'REVEAL', seat: HUMAN })}
       />
       <Scoreboard state={state} />

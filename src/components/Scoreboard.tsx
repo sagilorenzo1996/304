@@ -14,6 +14,11 @@ function Label({ long, short }: { long: string; short: string }) {
 
 /** Persistent panel: team points, the bid to beat, and trump status. */
 export default function Scoreboard({ state }: { state: GameState }) {
+  // Card points are tallied all along internally, but only shown once the
+  // round is over — a running total mid-round would spoil the suspense and
+  // let a player back-calculate exactly what's left to make (or break) the
+  // bid.
+  const scoresRevealed = state.phase === 'roundEnd';
   return (
     <aside className="scoreboard">
       <h3>
@@ -21,11 +26,11 @@ export default function Scoreboard({ state }: { state: GameState }) {
       </h3>
       <div className="score-row">
         <Label long={`${TEAM_NAMES[0]} (you)`} short="Us" />
-        <b>{state.teamPoints[0]}</b>
+        <b>{scoresRevealed ? state.teamPoints[0] : '—'}</b>
       </div>
       <div className="score-row">
         <Label long={TEAM_NAMES[1]} short="Them" />
-        <b>{state.teamPoints[1]}</b>
+        <b>{scoresRevealed ? state.teamPoints[1] : '—'}</b>
       </div>
       <hr />
       <div className="score-row">

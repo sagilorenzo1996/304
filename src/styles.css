@@ -322,6 +322,13 @@ body {
   z-index: 5;
 }
 
+.reveal-btn.active {
+  background: #1f4d3a;
+  color: #eee;
+  animation: none;
+  box-shadow: 0 0 0 3px rgba(232, 200, 119, 0.6);
+}
+
 @keyframes pulse {
   0%,
   100% {

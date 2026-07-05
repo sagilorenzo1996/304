@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { chooseBid, choosePlay, chooseTrumpCard } from './ai';
 import { buildDeck, mulberry32, TOTAL_POINTS } from './deck';
 import {
+  canGuessTrump,
   canRequestReveal,
   collectTrick,
   createRound,
@@ -248,6 +249,56 @@ describe('game modes', () => {
     throw new Error('no void-bidder-mid-trick scenario found across seeds');
   });
 
+  it('lets a void non-bidder submit a hidden trump guess', () => {
+    // Force a low bid so the round always proceeds regardless of hand
+    // strength, then fast-forward to the first non-bidder void seat.
+    for (let seed = 1; seed < 60; seed++) {
+      let s = createRound(3, [0, 0], 1, mulberry32(seed), 'blind');
+      s = placeBid(s, 0, MIN_BID);
+      s = placeBid(s, 1, null);
+      s = placeBid(s, 2, null);
+      s = placeBid(s, 3, null);
+      s = selectTrump(s, chooseTrumpCard(s, 0)); // bidder is seat 0
+      s = playCard(s, s.turn, s.hands[s.turn][0].id);
+      const ledSuit = s.currentTrick[0].card.suit;
+      const seat = s.turn;
+      if (seat === 0 || !s.hands[seat].every((c) => c.suit !== ledSuit)) continue;
+
+      expect(canGuessTrump(s, seat)).toBe(true);
+      const before = s.hands[seat].length;
+      const guessCard = s.hands[seat][0];
+      const isTrump = guessCard.suit === s.trumpCard!.suit;
+      s = playCard(s, seat, guessCard.id, true);
+
+      expect(s.hands[seat].length).toBe(before - 1);
+      expect(s.currentTrick.find((p) => p.card.id === guessCard.id)?.concealed).toBe(!isTrump);
+      expect(s.trumpRevealed).toBe(isTrump);
+      return;
+    }
+    throw new Error('no void non-bidder seat found across seeds');
+  });
+
+  it('rejects a hidden guess from the bidder or once trump is revealed', () => {
+    let s = createRound(3, [0, 0], 1, mulberry32(1), 'blind');
+    s = placeBid(s, 0, MIN_BID);
+    s = placeBid(s, 1, null);
+    s = placeBid(s, 2, null);
+    s = placeBid(s, 3, null);
+    s = selectTrump(s, chooseTrumpCard(s, 0));
+    expect(canGuessTrump(s, 0)).toBe(false); // the bidder guesses nothing, they know
+    expect(canGuessTrump(s, 1)).toBe(false); // no trick in progress yet
+
+    // Classic mode never offers the guess option, even when void.
+    let classic = createRound(3, [0, 0], 1, mulberry32(1), 'classic');
+    classic = placeBid(classic, 0, MIN_BID);
+    classic = placeBid(classic, 1, null);
+    classic = placeBid(classic, 2, null);
+    classic = placeBid(classic, 3, null);
+    classic = selectTrump(classic, chooseTrumpCard(classic, 0));
+    classic = playCard(classic, classic.turn, classic.hands[classic.turn][0].id);
+    expect(canGuessTrump(classic, classic.turn)).toBe(false);
+  });
+
   it('completes full blind-mode rounds regardless of when the trump is revealed', () => {
     for (let seed = 1; seed <= 20; seed++) {
       const rng = mulberry32(seed);
@@ -267,7 +318,10 @@ describe('game modes', () => {
           continue;
         }
         const move = choosePlay(s, s.turn);
-        s = move.action === 'reveal' ? requestReveal(s, s.turn) : playCard(s, s.turn, move.cardId);
+        s =
+          move.action === 'reveal'
+            ? requestReveal(s, s.turn)
+            : playCard(s, s.turn, move.cardId, move.action === 'guess');
       }
 
       expect(s.phase).toBe('roundEnd');
@@ -297,7 +351,10 @@ describe('game modes', () => {
         continue;
       }
       const move = choosePlay(s, s.turn);
-      s = move.action === 'reveal' ? requestReveal(s, s.turn) : playCard(s, s.turn, move.cardId);
+      s =
+        move.action === 'reveal'
+          ? requestReveal(s, s.turn)
+          : playCard(s, s.turn, move.cardId, move.action === 'guess');
     }
     s = nextRound(s, mulberry32(4));
     expect(s.mode).toBe('blind');

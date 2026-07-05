@@ -1,5 +1,6 @@
 import { GameState } from '../game/engine';
 import { trickPoints } from '../game/rules';
+import { HUMAN } from '../hooks/useGame';
 import CardView from './CardView';
 
 /**
@@ -19,6 +20,7 @@ export default function TrickArea({ state }: { state: GameState }) {
         <CardView
           key={p.card.id}
           card={p.card}
+          faceDown={p.concealed && p.seat !== HUMAN && state.bidder !== HUMAN}
           className={`played pos-${p.seat} from-${p.seat}`}
         />
       ))}
