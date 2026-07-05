@@ -1,23 +1,29 @@
 import { Rng, shuffle } from './deck';
 import { Seat } from './types';
 
+/** A mix of Sri Lankan, Indian, and English first names. */
 const NAME_POOL = [
+  // Sri Lankan
+  'Kasun',
+  'Nimali',
+  'Chamara',
+  'Tharindu',
+  'Sanduni',
+  'Nuwan',
+  // Indian
   'Priya',
   'Arjun',
   'Meera',
   'Karthik',
   'Divya',
-  'Rahul',
-  'Ananya',
   'Vikram',
-  'Sara',
-  'Dev',
-  'Nisha',
-  'Rohan',
-  'Kavya',
-  'Suresh',
-  'Deepa',
-  'Anand',
+  // English
+  'James',
+  'Emma',
+  'Oliver',
+  'Charlotte',
+  'Henry',
+  'Grace',
 ];
 
 /** Random names for the three AI seats; seat 0 stays "You". */
