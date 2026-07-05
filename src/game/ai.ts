@@ -172,11 +172,13 @@ const play = (card: Card): AiMove => ({ action: 'play', cardId: card.id });
  * Playing AI. May return `{action:'reveal'}` when void in the led suit;
  * the caller applies the reveal and asks again for the actual card.
  *
- * In blind mode, a void non-bidder can't request a reveal at all — but
- * submitting their planned discard as a face-down trump guess costs them
- * nothing (the trick resolves identically either way) and can only help
- * their side learn the trump, so they always take the option when it's
- * available.
+ * In blind mode nobody can request a reveal, not even the bidder — so a
+ * void seat always submits its planned card as a face-down guess instead.
+ * For non-bidders this costs nothing (the trick resolves identically
+ * either way) and can only help their side learn the trump. For the
+ * bidder, the ordinary void-suit logic below already reaches for the
+ * trump when it's worth playing, so wrapping it as a guess is how the
+ * bidder chooses to reveal early.
  */
 export function choosePlay(state: GameState, seat: Seat): AiMove {
   const move = decidePlay(state, seat);

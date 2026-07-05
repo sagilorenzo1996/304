@@ -190,7 +190,7 @@ describe('game modes', () => {
     expect(canRequestReveal(s, 1)).toBe(false); // nothing left to reveal
   });
 
-  it('blind mode never lets a non-bidder request a reveal', () => {
+  it('blind mode never lets any seat request a reveal, bidder included', () => {
     for (let seed = 1; seed < 40; seed++) {
       let s = createRound(3, [0, 0], 1, mulberry32(seed), 'blind');
       s = placeBid(s, 0, MIN_BID);
@@ -201,16 +201,16 @@ describe('game modes', () => {
       s = playCard(s, s.turn, s.hands[s.turn][0].id);
       const ledSuit = s.currentTrick[0].card.suit;
       const seat = s.turn;
-      if (seat !== 0 && s.hands[seat].every((c) => c.suit !== ledSuit)) {
+      if (s.hands[seat].every((c) => c.suit !== ledSuit)) {
         expect(canRequestReveal(s, seat)).toBe(false);
         expect(() => requestReveal(s, seat)).toThrow();
         return;
       }
     }
-    throw new Error('no void non-bidder seat found across seeds');
+    throw new Error('no void seat found across seeds');
   });
 
-  it('blind mode still lets the bidder reveal early by playing the trump when void', () => {
+  it('blind mode lets the bidder reveal early only via a face-down guess when void', () => {
     for (let seed = 1; seed < 60; seed++) {
       let s = createRound(3, [0, 0], 1, mulberry32(seed), 'blind');
       s = placeBid(s, 0, MIN_BID);
@@ -231,19 +231,22 @@ describe('game modes', () => {
         const move = legalMoves(s.hands[s.turn], s.currentTrick)[0];
         s = playCard(s, s.turn, move.id);
       }
+      const trumpCardInHand = s.hands[0].find((c) => c.suit === s.trumpCard!.suit);
       if (
         s.phase !== 'playing' ||
         s.turn !== 0 ||
         s.currentTrick.length === 0 ||
-        s.hands[0].some((c) => c.suit === s.currentTrick[0].card.suit)
+        s.hands[0].some((c) => c.suit === s.currentTrick[0].card.suit) ||
+        !trumpCardInHand
       ) {
-        continue; // bidder can follow suit, or this deal never reached the scenario
+        continue; // bidder can follow suit, has no trump left, or this deal never reached the scenario
       }
+      expect(canRequestReveal(s, 0)).toBe(false);
+      expect(canGuessTrump(s, 0)).toBe(true);
       const before = s.hands[0].length;
-      expect(canRequestReveal(s, 0)).toBe(true);
-      s = requestReveal(s, 0);
+      s = playCard(s, 0, trumpCardInHand.id, true);
       expect(s.trumpRevealed).toBe(true);
-      expect(s.hands[0].length).toBe(before + 1);
+      expect(s.hands[0].length).toBe(before);
       return;
     }
     throw new Error('no void-bidder-mid-trick scenario found across seeds');
@@ -278,14 +281,14 @@ describe('game modes', () => {
     throw new Error('no void non-bidder seat found across seeds');
   });
 
-  it('rejects a hidden guess from the bidder or once trump is revealed', () => {
+  it('rejects a hidden guess before a trick is in progress, or in classic mode', () => {
     let s = createRound(3, [0, 0], 1, mulberry32(1), 'blind');
     s = placeBid(s, 0, MIN_BID);
     s = placeBid(s, 1, null);
     s = placeBid(s, 2, null);
     s = placeBid(s, 3, null);
     s = selectTrump(s, chooseTrumpCard(s, 0));
-    expect(canGuessTrump(s, 0)).toBe(false); // the bidder guesses nothing, they know
+    expect(canGuessTrump(s, 0)).toBe(false); // no trick in progress yet
     expect(canGuessTrump(s, 1)).toBe(false); // no trick in progress yet
 
     // Classic mode never offers the guess option, even when void.
