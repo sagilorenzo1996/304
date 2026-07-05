@@ -1,4 +1,5 @@
-import { canRequestReveal, GameState } from '../game/engine';
+import { useEffect, useState } from 'react';
+import { canGuessTrump, canRequestReveal, GameState } from '../game/engine';
 import { legalMoves } from '../game/rules';
 import { Card, Seat, SEAT_NAMES, cardPower } from '../game/types';
 import { HUMAN } from '../hooks/useGame';
@@ -7,7 +8,7 @@ import TrickArea from './TrickArea';
 
 interface Props {
   state: GameState;
-  onPlayCard: (cardId: string) => void;
+  onPlayCard: (cardId: string, guess?: boolean) => void;
   onRequestReveal: () => void;
 }
 
@@ -30,12 +31,16 @@ function lastBidLabel(state: GameState, seat: Seat): string | null {
 }
 
 export default function Table({ state, onPlayCard, onRequestReveal }: Props) {
+  const [guessArmed, setGuessArmed] = useState(false);
+  useEffect(() => setGuessArmed(false), [state]);
+
   const humanTurn =
     state.phase === 'playing' && state.turn === HUMAN && !state.trickComplete;
   const legalIds = humanTurn
     ? new Set(legalMoves(state.hands[HUMAN], state.currentTrick).map((c) => c.id))
     : new Set<string>();
   const showReveal = canRequestReveal(state, HUMAN);
+  const showGuess = canGuessTrump(state, HUMAN);
 
   const activeSeat =
     state.phase === 'bidding'
@@ -100,13 +105,23 @@ export default function Table({ state, onPlayCard, onRequestReveal }: Props) {
             Reveal Trump 🂠
           </button>
         )}
+        {showGuess && (
+          <button
+            className={`reveal-btn${guessArmed ? ' active' : ''}`}
+            onClick={() => setGuessArmed((armed) => !armed)}
+          >
+            {guessArmed ? 'Cancel face-down guess' : 'Play a card face-down 🂠'}
+          </button>
+        )}
         <div className="hand">
           {sortHand(state.hands[HUMAN]).map((c, i) => (
             <CardView
               key={c.id}
               card={c}
               disabled={humanTurn && !legalIds.has(c.id)}
-              onClick={humanTurn && legalIds.has(c.id) ? () => onPlayCard(c.id) : undefined}
+              onClick={
+                humanTurn && legalIds.has(c.id) ? () => onPlayCard(c.id, guessArmed) : undefined
+              }
               className={humanTurn && legalIds.has(c.id) ? 'playable' : ''}
               style={{ animationDelay: `${i * 60}ms` }}
             />

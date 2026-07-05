@@ -322,6 +322,13 @@ body {
   z-index: 5;
 }
 
+.reveal-btn.active {
+  background: #1f4d3a;
+  color: #eee;
+  animation: none;
+  box-shadow: 0 0 0 3px rgba(232, 200, 119, 0.6);
+}
+
 @keyframes pulse {
   0%,
   100% {
@@ -689,6 +696,40 @@ body {
   gap: 10px;
 }
 
+.mode-picker {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.mode-option {
+  border: 1px solid rgba(232, 200, 119, 0.35);
+  background: transparent;
+  color: #cfe3d2;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.mode-option:hover {
+  border-color: var(--gold);
+}
+
+.mode-option.active {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: #3c2a05;
+}
+
+.mode-description {
+  min-height: 2.4em;
+}
+
 .modal.how-to-play {
   text-align: left;
 }
@@ -784,9 +825,25 @@ body {
     bottom: 8px;
   }
 
+  /* The vmin-based clamp floors out at a too-small size on narrow phones;
+     lift the floor here and tighten the fan overlap to compensate so all
+     8 cards still fit on screen. */
+  :root {
+    --card-w: clamp(60px, 13vmin, 76px);
+    --card-w-sm: clamp(34px, 7.5vmin, 46px);
+  }
+
+  .card .corner {
+    font-size: clamp(12px, 2.6vmin, 14px);
+  }
+
+  .card .pip {
+    font-size: clamp(26px, 5.6vmin, 34px);
+  }
+
   /* Tighter fans so 8 cards fit a narrow screen. */
   .hand .card {
-    margin-left: calc(var(--card-w) * -0.5);
+    margin-left: calc(var(--card-w) * -0.56);
   }
 
   .ai-cards .card {

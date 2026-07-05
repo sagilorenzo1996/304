@@ -9,6 +9,35 @@ import { Card, Seat, SEAT_NAMES, Suit, Team, nextSeat, teamOf } from './types';
 
 export type Phase = 'bidding' | 'trumpSelection' | 'playing' | 'roundEnd';
 
+/**
+ * classic — trump stays concealed; any void player may request the reveal.
+ * blind   — only the bidder (who already knows the trump) may reveal it early
+ *           by playing it when void; other void seats may instead submit a
+ *           face-down guess (see canGuessTrump), or wait for the forced
+ *           reveal on the last trick.
+ * open    — trump is revealed to everyone the instant it is set.
+ */
+export type GameMode = 'classic' | 'blind' | 'open';
+
+export const GAME_MODES: { id: GameMode; label: string; description: string }[] = [
+  {
+    id: 'classic',
+    label: 'Classic',
+    description: 'Trump stays hidden until a player void in the led suit asks for it.',
+  },
+  {
+    id: 'blind',
+    label: 'Blind',
+    description:
+      'The bidder may reveal the trump early by playing it when void. Everyone else may only guess — playing a card face-down that reveals the trump if it matches, or stays hidden forever if it doesn’t.',
+  },
+  {
+    id: 'open',
+    label: 'Open',
+    description: 'Trump is revealed to everyone the moment the bidder sets it.',
+  },
+];
+
 export const MIN_BID = 200;
 export const MAX_BID = 304;
 export const BID_STEP = 10;
@@ -29,6 +58,7 @@ export interface RoundResult {
 
 export interface GameState {
   phase: Phase;
+  mode: GameMode;
   round: number;
   dealer: Seat;
   hands: Card[][]; // indexed by seat
@@ -80,6 +110,7 @@ export function createRound(
   matchWins: [number, number],
   round: number,
   rng: Rng = Math.random,
+  mode: GameMode = 'classic',
 ): GameState {
   const deck = shuffle(buildDeck(), rng);
   const hands: Card[][] = [[], [], [], []];
@@ -91,6 +122,7 @@ export function createRound(
   const firstToBid = nextSeat(dealer);
   return {
     phase: 'bidding',
+    mode,
     round,
     dealer,
     hands,
@@ -154,7 +186,7 @@ export function placeBid(
 
   const active = ([0, 1, 2, 3] as Seat[]).filter((p) => !s.passed[p]);
   if (active.length === 0) {
-    const redeal = createRound(state.dealer, state.matchWins, state.round, rng);
+    const redeal = createRound(state.dealer, state.matchWins, state.round, rng, state.mode);
     redeal.message = 'Everyone passed — the hand is thrown in and redealt.';
     return redeal;
   }
@@ -198,13 +230,28 @@ export function selectTrump(state: GameState, cardId: string): GameState {
   s.phase = 'playing';
   s.leader = nextSeat(s.dealer);
   s.turn = s.leader;
-  s.message = `${SEAT_NAMES[bidder]} placed the trump face down. ${SEAT_NAMES[s.leader]} leads.`;
+
+  if (s.mode === 'open') {
+    doReveal(s, bidder);
+    s.message = `${SEAT_NAMES[bidder]} sets the trump — it is ${suitWord(
+      s.trumpCard!.suit,
+    )}! ${SEAT_NAMES[s.leader]} leads.`;
+  } else {
+    s.message = `${SEAT_NAMES[bidder]} placed the trump face down. ${SEAT_NAMES[s.leader]} leads.`;
+  }
   return s;
 }
 
-/** A player may ask for the trump to be revealed only when unable to follow suit. */
+/**
+ * A player may ask for the trump to be revealed only when unable to follow
+ * suit. In "blind" mode that option is restricted to the bidder — they
+ * already know the trump suit, so "requesting" it is really just their
+ * choice to play it now; everyone else must stay in the dark until the
+ * forced reveal on the last trick.
+ */
 export function canRequestReveal(state: GameState, seat: Seat): boolean {
   return (
+    (state.mode !== 'blind' || seat === state.bidder) &&
     state.phase === 'playing' &&
     !state.trickComplete &&
     !state.trumpRevealed &&
@@ -251,10 +298,34 @@ function autoRevealIfStuck(s: GameState): GameState {
   return s;
 }
 
-export function playCard(state: GameState, seat: Seat, cardId: string): GameState {
+/**
+ * In blind mode, a void non-bidder may play a card face-down as a guess at
+ * the trump suit instead of an ordinary open play. The bidder — the only
+ * one who already knows the trump — silently "checks" it: if the card's
+ * suit matches, the trump is revealed to the whole table; if not, the card
+ * still resolves the trick normally but its face stays concealed from
+ * everyone but the guesser and the bidder for the rest of the game.
+ */
+export function canGuessTrump(state: GameState, seat: Seat): boolean {
+  return (
+    state.mode === 'blind' &&
+    seat !== state.bidder &&
+    state.phase === 'playing' &&
+    !state.trickComplete &&
+    !state.trumpRevealed &&
+    state.turn === seat &&
+    state.currentTrick.length > 0 &&
+    isVoidInLedSuit(state.hands[seat], state.currentTrick)
+  );
+}
+
+export function playCard(state: GameState, seat: Seat, cardId: string, guess = false): GameState {
   if (state.phase !== 'playing') throw new Error('Not in the playing phase');
   if (state.trickComplete) throw new Error('The finished trick must be collected first');
   if (seat !== state.turn) throw new Error(`It is not seat ${seat}'s turn`);
+  if (guess && !canGuessTrump(state, seat)) {
+    throw new Error('Cannot play a hidden trump guess right now');
+  }
 
   const s = structuredClone(state);
   const hand = s.hands[seat];
@@ -265,13 +336,22 @@ export function playCard(state: GameState, seat: Seat, cardId: string): GameStat
   }
 
   s.hands[seat] = hand.filter((c) => c.id !== cardId);
-  s.currentTrick.push({ seat, card });
+  const guessedTrump = guess && card.suit === trumpSuitOf(s);
+  s.currentTrick.push({ seat, card, concealed: guess && !guessedTrump });
+
+  if (guessedTrump) {
+    doReveal(s, seat);
+    s.message = `${SEAT_NAMES[seat]}’s hidden card exposes the trump — it is ${suitWord(
+      s.trumpCard!.suit,
+    )}!`;
+  }
 
   if (s.currentTrick.length === 4) {
     s.trickComplete = true;
     s.trickWinnerSeat = trickWinner(s.currentTrick, effectiveTrump(s));
     const pts = trickPoints(s.currentTrick);
-    s.message = `${SEAT_NAMES[s.trickWinnerSeat]} takes the trick (+${pts} points).`;
+    const trickMsg = `${SEAT_NAMES[s.trickWinnerSeat]} takes the trick (+${pts} points).`;
+    s.message = guessedTrump ? `${s.message} ${trickMsg}` : trickMsg;
     return s;
   }
   s.turn = nextSeat(seat);
@@ -319,7 +399,7 @@ export function collectTrick(state: GameState): GameState {
 
 export function nextRound(state: GameState, rng: Rng = Math.random): GameState {
   if (state.phase !== 'roundEnd') throw new Error('The round is not over yet');
-  return createRound(nextSeat(state.dealer), state.matchWins, state.round + 1, rng);
+  return createRound(nextSeat(state.dealer), state.matchWins, state.round + 1, rng, state.mode);
 }
 
 function suitWord(suit: Suit): string {

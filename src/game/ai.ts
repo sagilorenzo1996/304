@@ -6,7 +6,16 @@
  * It does, however, remember everything that has legitimately been seen —
  * played cards and who showed out of which suit — via `buildMemory`.
  */
-import { effectiveTrump, GameState, isValidBid, MIN_BID, BID_STEP, trumpSuitOf } from './engine';
+import {
+  canGuessTrump,
+  canRequestReveal,
+  effectiveTrump,
+  GameState,
+  isValidBid,
+  MIN_BID,
+  BID_STEP,
+  trumpSuitOf,
+} from './engine';
 import { currentWinner, isVoidInLedSuit, legalMoves, trickPoints } from './rules';
 import {
   Card,
@@ -22,7 +31,10 @@ import {
   teamOf,
 } from './types';
 
-export type AiMove = { action: 'reveal' } | { action: 'play'; cardId: string };
+export type AiMove =
+  | { action: 'reveal' }
+  | { action: 'play'; cardId: string }
+  | { action: 'guess'; cardId: string };
 
 // ---------------------------------------------------------------------------
 // Card memory
@@ -159,8 +171,22 @@ const play = (card: Card): AiMove => ({ action: 'play', cardId: card.id });
 /**
  * Playing AI. May return `{action:'reveal'}` when void in the led suit;
  * the caller applies the reveal and asks again for the actual card.
+ *
+ * In blind mode, a void non-bidder can't request a reveal at all — but
+ * submitting their planned discard as a face-down trump guess costs them
+ * nothing (the trick resolves identically either way) and can only help
+ * their side learn the trump, so they always take the option when it's
+ * available.
  */
 export function choosePlay(state: GameState, seat: Seat): AiMove {
+  const move = decidePlay(state, seat);
+  if (move.action === 'play' && canGuessTrump(state, seat)) {
+    return { action: 'guess', cardId: move.cardId };
+  }
+  return move;
+}
+
+function decidePlay(state: GameState, seat: Seat): AiMove {
   const hand = state.hands[seat];
   const trick = state.currentTrick;
   const legal = legalMoves(hand, trick);
@@ -262,7 +288,7 @@ export function choosePlay(state: GameState, seat: Seat): AiMove {
   const voidInLed = isVoidInLedSuit(hand, trick);
 
   // Consider asking for the trump reveal when unable to follow suit.
-  if (voidInLed && !state.trumpRevealed) {
+  if (voidInLed && canRequestReveal(state, seat)) {
     const groups = bySuit(hand);
     const wantsReveal = isBidder
       ? // The bidder knows the trump; reveal only when actually holding

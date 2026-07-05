@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { createRound, GameState } from '../game/engine';
+import { createRound, GAME_MODES, GameMode, GameState } from '../game/engine';
 import { loadPlayerName, loadSavedGame, clearSavedGame, savePlayerName } from '../lib/storage';
 import ConfirmNewGameModal from './ConfirmNewGameModal';
 import HowToPlayModal from './HowToPlayModal';
@@ -11,6 +11,7 @@ interface Props {
 export default function HomeScreen({ onStart }: Props) {
   const [name, setName] = useState(() => loadPlayerName() ?? '');
   const [savedGame] = useState(() => loadSavedGame());
+  const [mode, setMode] = useState<GameMode>('classic');
   const [confirmingNewGame, setConfirmingNewGame] = useState(false);
   const [howToPlayOpen, setHowToPlayOpen] = useState(false);
 
@@ -20,7 +21,7 @@ export default function HomeScreen({ onStart }: Props) {
 
   const startNewGame = () => {
     clearSavedGame();
-    onStart(createRound(3, [0, 0], 1));
+    onStart(createRound(3, [0, 0], 1, Math.random, mode));
   };
 
   const handleNewGame = () => {
@@ -46,6 +47,21 @@ export default function HomeScreen({ onStart }: Props) {
             onChange={(e) => setName(e.target.value)}
             placeholder="Your name"
           />
+          <div className="mode-picker">
+            {GAME_MODES.map((m) => (
+              <button
+                key={m.id}
+                type="button"
+                className={`mode-option${mode === m.id ? ' active' : ''}`}
+                onClick={() => setMode(m.id)}
+              >
+                {m.label}
+              </button>
+            ))}
+          </div>
+          <p className="modal-sub mode-description">
+            {GAME_MODES.find((m) => m.id === mode)!.description}
+          </p>
           <div className="home-actions">
             <button className="btn primary" onClick={handleNewGame}>
               New Game
