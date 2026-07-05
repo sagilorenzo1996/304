@@ -665,6 +665,48 @@ body {
   font-weight: 700;
 }
 
+.name-input {
+  width: 100%;
+  box-sizing: border-box;
+  background: #0d1f14;
+  border: 1px solid rgba(232, 200, 119, 0.4);
+  border-radius: 10px;
+  padding: 10px 14px;
+  margin-bottom: 16px;
+  font-size: 16px;
+  color: #eee;
+}
+
+.name-input:focus {
+  outline: none;
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(232, 200, 119, 0.25);
+}
+
+.home-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.modal.how-to-play {
+  text-align: left;
+}
+
+.modal.how-to-play h2 {
+  text-align: center;
+}
+
+.modal.how-to-play ol,
+.modal.how-to-play ul {
+  padding-left: 20px;
+  margin-bottom: 14px;
+}
+
+.modal.how-to-play li {
+  margin-bottom: 8px;
+}
+
 /* ---------- Mobile layout ---------- */
 
 @media (max-width: 760px), (max-height: 520px) {
