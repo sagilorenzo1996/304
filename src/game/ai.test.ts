@@ -58,7 +58,7 @@ function playState(over: Partial<GameState>): GameState {
     teamPoints: [0, 0],
     matchWins: [0, 0],
     roundResult: null,
-    message: '',
+    message: [],
     ...over,
   };
 }

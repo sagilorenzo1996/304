@@ -23,24 +23,8 @@ export type Phase = 'bidding' | 'trumpSelection' | 'playing' | 'roundEnd';
  */
 export type GameMode = 'classic' | 'blind' | 'open';
 
-export const GAME_MODES: { id: GameMode; label: string; description: string }[] = [
-  {
-    id: 'classic',
-    label: 'Classic',
-    description: 'Trump stays hidden until a player void in the led suit asks for it.',
-  },
-  {
-    id: 'blind',
-    label: 'Blind',
-    description:
-      'Played with a stripped 24-card deck (no 7s or 8s) — 6 cards a hand, dealt 3 at a time. Nobody may request the trump reveal. Anyone void in the led suit must play a card face-down — it reveals the trump if it matches, or stays hidden forever if it doesn’t. The bidder alone may instead submit the sequestered trump card itself as a deliberate reveal. Either way, a reveal is only announced once the trick it happened in ends.',
-  },
-  {
-    id: 'open',
-    label: 'Open',
-    description: 'Trump is revealed to everyone the moment the bidder sets it.',
-  },
-];
+/** Mode ids in menu order; labels and descriptions live in the i18n dictionary. */
+export const GAME_MODES: GameMode[] = ['classic', 'blind', 'open'];
 
 export const MIN_BID = 200;
 export const MAX_BID = 304;
@@ -62,6 +46,20 @@ export interface RoundResult {
   defenderTeamPoints: number;
   success: boolean;
 }
+
+/**
+ * A translatable fragment of a game message: a dictionary key (see
+ * src/i18n/translations.ts, `msg.*`) plus the values to interpolate into
+ * it. Keeping messages structured — instead of baking English text in here
+ * — is what lets the UI render them in whichever language is active.
+ */
+export interface MessagePart {
+  key: string;
+  params?: Record<string, string | number>;
+}
+
+/** One or more parts joined (by the UI) into the full status line. */
+export type EngineMessage = MessagePart[];
 
 export interface GameState {
   phase: Phase;
@@ -104,7 +102,7 @@ export interface GameState {
   matchWins: [number, number]; // rounds won [NS, EW]
   roundResult: RoundResult | null;
 
-  message: string;
+  message: EngineMessage;
 }
 
 export function trumpSuitOf(state: GameState): Suit | null {
@@ -172,7 +170,7 @@ export function createRound(
     teamPoints: [0, 0],
     matchWins,
     roundResult: null,
-    message: `Round ${round} — ${playerNames[dealer]} deals. Bidding opens at ${MIN_BID}.`,
+    message: [{ key: 'msg.roundDeals', params: { round, name: playerNames[dealer], minBid: MIN_BID } }],
   };
 }
 
@@ -200,12 +198,12 @@ export function placeBid(
   const s = structuredClone(state);
   if (bid === null) {
     s.passed[seat] = true;
-    s.message = `${s.playerNames[seat]} passes.`;
+    s.message = [{ key: 'msg.passes', params: { name: s.playerNames[seat] } }];
   } else {
     if (!isValidBid(state, bid)) throw new Error(`Invalid bid: ${bid}`);
     s.highBid = bid;
     s.highBidder = seat;
-    s.message = `${s.playerNames[seat]} bids ${bid}.`;
+    s.message = [{ key: 'msg.bids', params: { name: s.playerNames[seat], bid } }];
   }
   s.bidHistory.push({ seat, bid });
 
@@ -219,14 +217,16 @@ export function placeBid(
       state.mode,
       state.playerNames,
     );
-    redeal.message = 'Everyone passed — the hand is thrown in and redealt.';
+    redeal.message = [{ key: 'msg.redeal' }];
     return redeal;
   }
   if (active.length === 1 && s.highBidder === active[0]) {
     s.bidder = s.highBidder;
     s.bid = s.highBid;
     s.phase = 'trumpSelection';
-    s.message = `${s.playerNames[s.bidder]} wins the auction at ${s.bid} and now sets the trump.`;
+    s.message = [
+      { key: 'msg.auctionWon', params: { name: s.playerNames[s.bidder], bid: s.bid as number } },
+    ];
     return s;
   }
   let next = nextSeat(seat);
@@ -266,11 +266,19 @@ export function selectTrump(state: GameState, cardId: string): GameState {
 
   if (s.mode === 'open') {
     doReveal(s, bidder);
-    s.message = `${s.playerNames[bidder]} sets the trump — it is ${suitWord(
-      s.trumpCard!.suit,
-    )}! ${s.playerNames[s.leader]} leads.`;
+    s.message = [
+      {
+        key: 'msg.trumpSetOpen',
+        params: { name: s.playerNames[bidder], suit: s.trumpCard!.suit, leader: s.playerNames[s.leader] },
+      },
+    ];
   } else {
-    s.message = `${s.playerNames[bidder]} placed the trump face down. ${s.playerNames[s.leader]} leads.`;
+    s.message = [
+      {
+        key: 'msg.trumpSetHidden',
+        params: { name: s.playerNames[bidder], leader: s.playerNames[s.leader] },
+      },
+    ];
   }
   return s;
 }
@@ -297,7 +305,9 @@ export function canRequestReveal(state: GameState, seat: Seat): boolean {
 export function requestReveal(state: GameState, seat: Seat): GameState {
   if (!canRequestReveal(state, seat)) throw new Error('Trump reveal is not allowed right now');
   const s = doReveal(structuredClone(state), seat);
-  s.message = `${s.playerNames[seat]} asks for the trump — it is ${suitWord(s.trumpCard!.suit)}!`;
+  s.message = [
+    { key: 'msg.trumpAsked', params: { name: s.playerNames[seat], suit: s.trumpCard!.suit } },
+  ];
   return s;
 }
 
@@ -332,7 +342,7 @@ function autoRevealIfStuck(s: GameState): GameState {
     s.trumpCard
   ) {
     doReveal(s, s.bidder);
-    s.message = `The trump is revealed automatically — it was ${suitWord(s.trumpCard!.suit)}.`;
+    s.message = [{ key: 'msg.trumpAutoRevealed', params: { suit: s.trumpCard!.suit } }];
   }
   return s;
 }
@@ -424,7 +434,7 @@ export function playCard(state: GameState, seat: Seat, cardId: string, guess = f
  */
 function finishTrick(s: GameState, seat: Seat): GameState {
   if (s.currentTrick.length === 4) {
-    const revealMessages: string[] = [];
+    const revealMessages: MessagePart[] = [];
     if (s.pendingReveals.length > 0) {
       // Only true when the bidder's own submitted trump card is what
       // triggered the reveal — it's already in the trick and must not
@@ -434,19 +444,20 @@ function finishTrick(s: GameState, seat: Seat): GameState {
         const entry = s.currentTrick.find((p) => p.seat === revealer);
         if (entry) entry.concealed = false;
         doReveal(s, revealer, trumpAlreadyPlayed);
-        revealMessages.push(
-          `${s.playerNames[revealer]}’s hidden card exposes the trump — it is ${suitWord(
-            s.trumpCard!.suit,
-          )}!`,
-        );
+        revealMessages.push({
+          key: 'msg.hiddenCardExposesTrump',
+          params: { name: s.playerNames[revealer], suit: s.trumpCard!.suit },
+        });
       }
       s.pendingReveals = [];
     }
     s.trickComplete = true;
     s.trickWinnerSeat = trickWinner(s.currentTrick, effectiveTrump(s));
     const pts = trickPoints(s.currentTrick);
-    const trickMsg = `${s.playerNames[s.trickWinnerSeat]} takes the trick (+${pts} points).`;
-    s.message = [...revealMessages, trickMsg].join(' ');
+    s.message = [
+      ...revealMessages,
+      { key: 'msg.takesTrick', params: { name: s.playerNames[s.trickWinnerSeat], points: pts } },
+    ];
     return s;
   }
   s.turn = nextSeat(seat);
@@ -483,12 +494,15 @@ export function collectTrick(state: GameState): GameState {
     };
     s.matchWins[success ? bidderTeam : ((1 - bidderTeam) as Team)] += 1;
     s.phase = 'roundEnd';
-    s.message = success
-      ? `Bid made! The bidding team took ${bidderTeamPoints} of ${s.bid}.`
-      : `Bid failed — the bidding team took only ${bidderTeamPoints} of ${s.bid}.`;
+    s.message = [
+      {
+        key: success ? 'msg.bidMade' : 'msg.bidFailed',
+        params: { points: bidderTeamPoints, bid: s.bid as number },
+      },
+    ];
     return s;
   }
-  s.message = `${s.playerNames[winner]} leads the next trick.`;
+  s.message = [{ key: 'msg.leadsNextTrick', params: { name: s.playerNames[winner] } }];
   return autoRevealIfStuck(s);
 }
 
@@ -502,8 +516,4 @@ export function nextRound(state: GameState, rng: Rng = Math.random): GameState {
     state.mode,
     state.playerNames,
   );
-}
-
-function suitWord(suit: Suit): string {
-  return { S: '♠ Spades', H: '♥ Hearts', D: '♦ Diamonds', C: '♣ Clubs' }[suit];
 }

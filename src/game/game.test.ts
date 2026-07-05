@@ -133,7 +133,9 @@ describe('player names', () => {
     expect(s.playerNames[0]).toBe('You');
     const opponentNames = [s.playerNames[1], s.playerNames[2], s.playerNames[3]];
     expect(new Set(opponentNames).size).toBe(3);
-    expect(s.message).toContain(s.playerNames[s.dealer]);
+    expect(s.message).toEqual([
+      { key: 'msg.roundDeals', params: { round: 1, name: s.playerNames[s.dealer], minBid: MIN_BID } },
+    ]);
   });
 
   it('carries the same names through a redeal', () => {
@@ -168,7 +170,7 @@ describe('player names', () => {
   it('uses the assigned names in engine messages', () => {
     let s = createRound(3, [0, 0], 1, mulberry32(1));
     s = placeBid(s, 0, MIN_BID);
-    expect(s.message).toBe(`${s.playerNames[0]} bids ${MIN_BID}.`);
+    expect(s.message).toEqual([{ key: 'msg.bids', params: { name: s.playerNames[0], bid: MIN_BID } }]);
   });
 });
 

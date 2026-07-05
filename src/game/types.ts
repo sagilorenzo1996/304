@@ -48,11 +48,6 @@ export const SEATS: Seat[] = [0, 1, 2, 3];
 /** Team 0 = North/South, Team 1 = East/West. */
 export type Team = 0 | 1;
 
-export const TEAM_NAMES: Record<Team, string> = {
-  0: 'North / South',
-  1: 'East / West',
-};
-
 export const teamOf = (seat: Seat): Team => (seat % 2 === 0 ? 0 : 1);
 export const nextSeat = (seat: Seat): Seat => ((seat + 1) % 4) as Seat;
 export const partnerOf = (seat: Seat): Seat => ((seat + 2) % 4) as Seat;

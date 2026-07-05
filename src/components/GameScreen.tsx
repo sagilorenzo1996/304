@@ -1,6 +1,7 @@
 import { GameState } from '../game/engine';
 import { useGame, HUMAN } from '../hooks/useGame';
 import BiddingModal from './BiddingModal';
+import LanguageToggle from './LanguageToggle';
 import MuteButton from './MuteButton';
 import RoundEndModal from './RoundEndModal';
 import Scoreboard from './Scoreboard';
@@ -27,6 +28,7 @@ export default function GameScreen({ initialState }: Props) {
         onSubmitHiddenTrump={() => dispatch({ type: 'SUBMIT_HIDDEN_TRUMP', seat: HUMAN })}
       />
       <Scoreboard state={state} />
+      <LanguageToggle />
       <MuteButton />
       {humanBidding && (
         <BiddingModal state={state} onBid={(bid) => dispatch({ type: 'BID', seat: HUMAN, bid })} />

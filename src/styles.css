@@ -541,6 +541,35 @@ body {
   transform: scale(1.1);
 }
 
+.language-toggle {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  z-index: 20; /* stays reachable above modal overlays */
+  display: flex;
+  gap: 4px;
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  padding: 4px;
+}
+
+.lang-option {
+  border: none;
+  background: transparent;
+  color: #cfe3d2;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.lang-option.active {
+  background: var(--gold);
+  color: #3c2a05;
+  font-weight: 700;
+}
+
 /* ---------- Modals ---------- */
 
 .overlay {
