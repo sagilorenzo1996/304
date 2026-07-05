@@ -1,39 +1,23 @@
-import BiddingModal from './components/BiddingModal';
-import MuteButton from './components/MuteButton';
-import RoundEndModal from './components/RoundEndModal';
-import Scoreboard from './components/Scoreboard';
-import Table from './components/Table';
-import TrumpSelectModal from './components/TrumpSelectModal';
-import { HUMAN, useGame } from './hooks/useGame';
+import { useState } from 'react';
+import GameScreen from './components/GameScreen';
+import HomeScreen from './components/HomeScreen';
+import { GameState } from './game/engine';
+
+type Screen = 'home' | 'game';
 
 export default function App() {
-  const { state, dispatch } = useGame();
+  const [screen, setScreen] = useState<Screen>('home');
+  const [initialGameState, setInitialGameState] = useState<GameState | null>(null);
 
-  const humanBidding =
-    state.phase === 'bidding' && state.bidTurn === HUMAN && !state.passed[HUMAN];
-  const humanPickingTrump = state.phase === 'trumpSelection' && state.bidder === HUMAN;
+  const handleStart = (state: GameState) => {
+    setInitialGameState(state);
+    setScreen('game');
+  };
 
   return (
     <div className="app">
-      <Table
-        state={state}
-        onPlayCard={(cardId) => dispatch({ type: 'PLAY', seat: HUMAN, cardId })}
-        onRequestReveal={() => dispatch({ type: 'REVEAL', seat: HUMAN })}
-      />
-      <Scoreboard state={state} />
-      <MuteButton />
-      {humanBidding && (
-        <BiddingModal state={state} onBid={(bid) => dispatch({ type: 'BID', seat: HUMAN, bid })} />
-      )}
-      {humanPickingTrump && (
-        <TrumpSelectModal
-          state={state}
-          onSelect={(cardId) => dispatch({ type: 'SELECT_TRUMP', cardId })}
-        />
-      )}
-      {state.phase === 'roundEnd' && (
-        <RoundEndModal state={state} onNextRound={() => dispatch({ type: 'NEXT_ROUND' })} />
-      )}
+      {screen === 'home' && <HomeScreen onStart={handleStart} />}
+      {screen === 'game' && initialGameState && <GameScreen initialState={initialGameState} />}
     </div>
   );
 }
