@@ -8,9 +8,9 @@
  */
 export type Language = 'en' | 'si';
 
-export const LANGUAGES: { id: Language; label: string }[] = [
-  { id: 'en', label: 'English' },
-  { id: 'si', label: 'සිංහල' },
+export const LANGUAGES: { id: Language; label: string; short: string }[] = [
+  { id: 'en', label: 'English', short: 'EN' },
+  { id: 'si', label: 'සිංහල', short: 'සිං' },
 ];
 
 export type Dictionary = Record<string, string>;

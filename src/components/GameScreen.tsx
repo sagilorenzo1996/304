@@ -28,7 +28,7 @@ export default function GameScreen({ initialState }: Props) {
         onSubmitHiddenTrump={() => dispatch({ type: 'SUBMIT_HIDDEN_TRUMP', seat: HUMAN })}
       />
       <Scoreboard state={state} />
-      <LanguageToggle />
+      <LanguageToggle className="language-toggle--game" />
       <MuteButton />
       {humanBidding && (
         <BiddingModal state={state} onBid={(bid) => dispatch({ type: 'BID', seat: HUMAN, bid })} />
