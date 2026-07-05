@@ -10,9 +10,10 @@ import { Card, Seat, SEAT_NAMES, Suit, Team, nextSeat, teamOf } from './types';
 export type Phase = 'bidding' | 'trumpSelection' | 'playing' | 'roundEnd';
 
 /**
- * classic — trump stays concealed; a void player may request the reveal.
- * blind   — trump is never revealed on request, only automatically when the
- *           bidder's hand runs out on the last trick.
+ * classic — trump stays concealed; any void player may request the reveal.
+ * blind   — only the bidder (who already knows the trump) may reveal it early
+ *           by playing it when void; other seats must play blind until the
+ *           forced reveal on the last trick.
  * open    — trump is revealed to everyone the instant it is set.
  */
 export type GameMode = 'classic' | 'blind' | 'open';
@@ -26,7 +27,8 @@ export const GAME_MODES: { id: GameMode; label: string; description: string }[] 
   {
     id: 'blind',
     label: 'Blind',
-    description: 'Trump can never be requested — it only surfaces on the very last trick.',
+    description:
+      'Only the bidder may reveal the trump early, by playing it when void. Everyone else plays blind until the last trick.',
   },
   {
     id: 'open',
@@ -241,12 +243,14 @@ export function selectTrump(state: GameState, cardId: string): GameState {
 
 /**
  * A player may ask for the trump to be revealed only when unable to follow
- * suit. In "blind" mode the reveal can never be requested — it only happens
- * automatically once the bidder's hand runs out on the last trick.
+ * suit. In "blind" mode that option is restricted to the bidder — they
+ * already know the trump suit, so "requesting" it is really just their
+ * choice to play it now; everyone else must stay in the dark until the
+ * forced reveal on the last trick.
  */
 export function canRequestReveal(state: GameState, seat: Seat): boolean {
   return (
-    state.mode !== 'blind' &&
+    (state.mode !== 'blind' || seat === state.bidder) &&
     state.phase === 'playing' &&
     !state.trickComplete &&
     !state.trumpRevealed &&

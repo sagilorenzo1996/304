@@ -189,27 +189,66 @@ describe('game modes', () => {
     expect(canRequestReveal(s, 1)).toBe(false); // nothing left to reveal
   });
 
-  it('blind mode never allows a reveal request', () => {
+  it('blind mode never lets a non-bidder request a reveal', () => {
     for (let seed = 1; seed < 40; seed++) {
       let s = createRound(3, [0, 0], 1, mulberry32(seed), 'blind');
       s = placeBid(s, 0, MIN_BID);
       s = placeBid(s, 1, null);
       s = placeBid(s, 2, null);
       s = placeBid(s, 3, null);
-      s = selectTrump(s, chooseTrumpCard(s, 0));
+      s = selectTrump(s, chooseTrumpCard(s, 0)); // bidder is seat 0
       s = playCard(s, s.turn, s.hands[s.turn][0].id);
       const ledSuit = s.currentTrick[0].card.suit;
       const seat = s.turn;
-      if (s.hands[seat].every((c) => c.suit !== ledSuit)) {
+      if (seat !== 0 && s.hands[seat].every((c) => c.suit !== ledSuit)) {
         expect(canRequestReveal(s, seat)).toBe(false);
         expect(() => requestReveal(s, seat)).toThrow();
         return;
       }
     }
-    throw new Error('no void seat found across seeds');
+    throw new Error('no void non-bidder seat found across seeds');
   });
 
-  it('completes full blind-mode rounds via the automatic last-trick reveal', () => {
+  it('blind mode still lets the bidder reveal early by playing the trump when void', () => {
+    for (let seed = 1; seed < 60; seed++) {
+      let s = createRound(3, [0, 0], 1, mulberry32(seed), 'blind');
+      s = placeBid(s, 0, MIN_BID);
+      s = placeBid(s, 1, null);
+      s = placeBid(s, 2, null);
+      s = placeBid(s, 3, null);
+      s = selectTrump(s, chooseTrumpCard(s, 0)); // bidder is seat 0
+
+      // Fast-forward, always playing a legal card, until it's the bidder's
+      // turn mid-trick (i.e. not leading).
+      let guard = 0;
+      while (guard++ < 100 && s.phase === 'playing') {
+        if (s.trickComplete) {
+          s = collectTrick(s);
+          continue;
+        }
+        if (s.turn === 0 && s.currentTrick.length > 0) break;
+        const move = legalMoves(s.hands[s.turn], s.currentTrick)[0];
+        s = playCard(s, s.turn, move.id);
+      }
+      if (
+        s.phase !== 'playing' ||
+        s.turn !== 0 ||
+        s.currentTrick.length === 0 ||
+        s.hands[0].some((c) => c.suit === s.currentTrick[0].card.suit)
+      ) {
+        continue; // bidder can follow suit, or this deal never reached the scenario
+      }
+      const before = s.hands[0].length;
+      expect(canRequestReveal(s, 0)).toBe(true);
+      s = requestReveal(s, 0);
+      expect(s.trumpRevealed).toBe(true);
+      expect(s.hands[0].length).toBe(before + 1);
+      return;
+    }
+    throw new Error('no void-bidder-mid-trick scenario found across seeds');
+  });
+
+  it('completes full blind-mode rounds regardless of when the trump is revealed', () => {
     for (let seed = 1; seed <= 20; seed++) {
       const rng = mulberry32(seed);
       let s = createRound((seed % 4) as Seat, [0, 0], 1, rng, 'blind');
