@@ -1,9 +1,9 @@
 import { useEffect, useReducer, useRef } from 'react';
 import { sfx } from '../audio/sfx';
+import { saveGame } from '../lib/storage';
 import { chooseBid, choosePlay, chooseTrumpCard } from '../game/ai';
 import {
   collectTrick,
-  createRound,
   GameState,
   nextRound,
   placeBid,
@@ -67,8 +67,13 @@ function reducer(state: GameState, action: GameAction): GameState {
  * trick-collection pause, so the UI just renders state and dispatches
  * human intents.
  */
-export function useGame() {
-  const [state, dispatch] = useReducer(reducer, undefined, () => createRound(3, [0, 0], 1));
+export function useGame(initialState: GameState) {
+  const [state, dispatch] = useReducer(reducer, initialState);
+
+  // Persist so the game can be resumed on this device.
+  useEffect(() => {
+    saveGame(state);
+  }, [state]);
 
   // Sound effects, driven purely by state transitions.
   const prevRef = useRef(state);
