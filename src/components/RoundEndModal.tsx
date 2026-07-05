@@ -1,5 +1,5 @@
 import { GameState } from '../game/engine';
-import { SEAT_NAMES, TEAM_NAMES } from '../game/types';
+import { TEAM_NAMES } from '../game/types';
 
 interface Props {
   state: GameState;
@@ -17,7 +17,7 @@ export default function RoundEndModal({ state, onNextRound }: Props) {
       <div className="modal">
         <h2>{humanSide ? '🎉 Your team wins the round!' : '😞 Opponents win the round'}</h2>
         <p className="modal-sub">
-          {SEAT_NAMES[result.bidder]} bid {result.bid} for {TEAM_NAMES[result.bidderTeam]} and
+          {state.playerNames[result.bidder]} bid {result.bid} for {TEAM_NAMES[result.bidderTeam]} and
           took {result.bidderTeamPoints} points — the bid {result.success ? 'was made' : 'failed'}.
         </p>
         <table className="score-table">

@@ -35,6 +35,7 @@ function playState(over: Partial<GameState>): GameState {
     dealer: 3,
     hands: [[], [], [], []],
     pending: [],
+    playerNames: { 0: 'You', 1: 'West', 2: 'North', 3: 'East' },
     passed: [false, true, true, true],
     bidHistory: [],
     highBid: 200,

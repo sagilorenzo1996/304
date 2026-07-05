@@ -1,6 +1,6 @@
 import { canGuessTrump, canRequestReveal, canSubmitHiddenTrump, GameState } from '../game/engine';
 import { legalMoves } from '../game/rules';
-import { Card, Seat, SEAT_NAMES, cardPower } from '../game/types';
+import { Card, Seat, cardPower } from '../game/types';
 import { HUMAN } from '../hooks/useGame';
 import CardView, { isRedSuit, suitChar } from './CardView';
 import TrickArea from './TrickArea';
@@ -53,7 +53,7 @@ export default function Table({ state, onPlayCard, onRequestReveal, onSubmitHidd
     return (
       <div className={`plate ${activeSeat === seat ? 'active' : ''} ${won ? 'winner' : ''}`}>
         <span className="plate-name">
-          {SEAT_NAMES[seat]}
+          {state.playerNames[seat]}
           {seat === 2 && <em> · partner</em>}
         </span>
         {state.dealer === seat && <span className="chip dealer">D</span>}

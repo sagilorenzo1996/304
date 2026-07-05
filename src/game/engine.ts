@@ -4,8 +4,9 @@
  * inside a React reducer and to unit-test headlessly.
  */
 import { buildDeck, Rng, shuffle } from './deck';
+import { randomPlayerNames } from './names';
 import { legalMoves, isVoidInLedSuit, PlayedCard, trickPoints, trickWinner } from './rules';
-import { BLIND_RANKS, Card, Seat, SEAT_NAMES, Suit, Team, nextSeat, teamOf } from './types';
+import { BLIND_RANKS, Card, Seat, Suit, Team, nextSeat, teamOf } from './types';
 
 export type Phase = 'bidding' | 'trumpSelection' | 'playing' | 'roundEnd';
 
@@ -69,6 +70,8 @@ export interface GameState {
   dealer: Seat;
   hands: Card[][]; // indexed by seat
   pending: Card[]; // the 16 cards held back for the second deal
+  /** Display names, randomized once per match and carried through every round. */
+  playerNames: Record<Seat, string>;
 
   // Bidding
   passed: boolean[];
@@ -117,6 +120,10 @@ export function effectiveTrump(state: GameState): Suit | null {
  * Deal the first cards to each player and open the bidding — 4 each from
  * the full 32-card deck normally, or 3 each from blind mode's stripped
  * 24-card deck (no 7s or 8s).
+ *
+ * `playerNames` defaults to a fresh random draw (seat 0 is always "You");
+ * pass the previous round's `state.playerNames` through on a redeal or
+ * `nextRound` so the same opponents keep their names for the whole match.
  */
 export function createRound(
   dealer: Seat,
@@ -124,6 +131,7 @@ export function createRound(
   round: number,
   rng: Rng = Math.random,
   mode: GameMode = 'classic',
+  playerNames: Record<Seat, string> = randomPlayerNames(rng),
 ): GameState {
   const chunk = DEAL_CHUNK[mode];
   const deck = shuffle(mode === 'blind' ? buildDeck(BLIND_RANKS) : buildDeck(), rng);
@@ -141,6 +149,7 @@ export function createRound(
     dealer,
     hands,
     pending: deck.slice(4 * chunk),
+    playerNames,
     passed: [false, false, false, false],
     bidHistory: [],
     highBid: null,
@@ -163,7 +172,7 @@ export function createRound(
     teamPoints: [0, 0],
     matchWins,
     roundResult: null,
-    message: `Round ${round} — ${SEAT_NAMES[dealer]} deals. Bidding opens at ${MIN_BID}.`,
+    message: `Round ${round} — ${playerNames[dealer]} deals. Bidding opens at ${MIN_BID}.`,
   };
 }
 
@@ -191,18 +200,25 @@ export function placeBid(
   const s = structuredClone(state);
   if (bid === null) {
     s.passed[seat] = true;
-    s.message = `${SEAT_NAMES[seat]} passes.`;
+    s.message = `${s.playerNames[seat]} passes.`;
   } else {
     if (!isValidBid(state, bid)) throw new Error(`Invalid bid: ${bid}`);
     s.highBid = bid;
     s.highBidder = seat;
-    s.message = `${SEAT_NAMES[seat]} bids ${bid}.`;
+    s.message = `${s.playerNames[seat]} bids ${bid}.`;
   }
   s.bidHistory.push({ seat, bid });
 
   const active = ([0, 1, 2, 3] as Seat[]).filter((p) => !s.passed[p]);
   if (active.length === 0) {
-    const redeal = createRound(state.dealer, state.matchWins, state.round, rng, state.mode);
+    const redeal = createRound(
+      state.dealer,
+      state.matchWins,
+      state.round,
+      rng,
+      state.mode,
+      state.playerNames,
+    );
     redeal.message = 'Everyone passed — the hand is thrown in and redealt.';
     return redeal;
   }
@@ -210,7 +226,7 @@ export function placeBid(
     s.bidder = s.highBidder;
     s.bid = s.highBid;
     s.phase = 'trumpSelection';
-    s.message = `${SEAT_NAMES[s.bidder]} wins the auction at ${s.bid} and now sets the trump.`;
+    s.message = `${s.playerNames[s.bidder]} wins the auction at ${s.bid} and now sets the trump.`;
     return s;
   }
   let next = nextSeat(seat);
@@ -250,11 +266,11 @@ export function selectTrump(state: GameState, cardId: string): GameState {
 
   if (s.mode === 'open') {
     doReveal(s, bidder);
-    s.message = `${SEAT_NAMES[bidder]} sets the trump — it is ${suitWord(
+    s.message = `${s.playerNames[bidder]} sets the trump — it is ${suitWord(
       s.trumpCard!.suit,
-    )}! ${SEAT_NAMES[s.leader]} leads.`;
+    )}! ${s.playerNames[s.leader]} leads.`;
   } else {
-    s.message = `${SEAT_NAMES[bidder]} placed the trump face down. ${SEAT_NAMES[s.leader]} leads.`;
+    s.message = `${s.playerNames[bidder]} placed the trump face down. ${s.playerNames[s.leader]} leads.`;
   }
   return s;
 }
@@ -281,7 +297,7 @@ export function canRequestReveal(state: GameState, seat: Seat): boolean {
 export function requestReveal(state: GameState, seat: Seat): GameState {
   if (!canRequestReveal(state, seat)) throw new Error('Trump reveal is not allowed right now');
   const s = doReveal(structuredClone(state), seat);
-  s.message = `${SEAT_NAMES[seat]} asks for the trump — it is ${suitWord(s.trumpCard!.suit)}!`;
+  s.message = `${s.playerNames[seat]} asks for the trump — it is ${suitWord(s.trumpCard!.suit)}!`;
   return s;
 }
 
@@ -419,7 +435,7 @@ function finishTrick(s: GameState, seat: Seat): GameState {
         if (entry) entry.concealed = false;
         doReveal(s, revealer, trumpAlreadyPlayed);
         revealMessages.push(
-          `${SEAT_NAMES[revealer]}’s hidden card exposes the trump — it is ${suitWord(
+          `${s.playerNames[revealer]}’s hidden card exposes the trump — it is ${suitWord(
             s.trumpCard!.suit,
           )}!`,
         );
@@ -429,7 +445,7 @@ function finishTrick(s: GameState, seat: Seat): GameState {
     s.trickComplete = true;
     s.trickWinnerSeat = trickWinner(s.currentTrick, effectiveTrump(s));
     const pts = trickPoints(s.currentTrick);
-    const trickMsg = `${SEAT_NAMES[s.trickWinnerSeat]} takes the trick (+${pts} points).`;
+    const trickMsg = `${s.playerNames[s.trickWinnerSeat]} takes the trick (+${pts} points).`;
     s.message = [...revealMessages, trickMsg].join(' ');
     return s;
   }
@@ -472,13 +488,20 @@ export function collectTrick(state: GameState): GameState {
       : `Bid failed — the bidding team took only ${bidderTeamPoints} of ${s.bid}.`;
     return s;
   }
-  s.message = `${SEAT_NAMES[winner]} leads the next trick.`;
+  s.message = `${s.playerNames[winner]} leads the next trick.`;
   return autoRevealIfStuck(s);
 }
 
 export function nextRound(state: GameState, rng: Rng = Math.random): GameState {
   if (state.phase !== 'roundEnd') throw new Error('The round is not over yet');
-  return createRound(nextSeat(state.dealer), state.matchWins, state.round + 1, rng, state.mode);
+  return createRound(
+    nextSeat(state.dealer),
+    state.matchWins,
+    state.round + 1,
+    rng,
+    state.mode,
+    state.playerNames,
+  );
 }
 
 function suitWord(suit: Suit): string {

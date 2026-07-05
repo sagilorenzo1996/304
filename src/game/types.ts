@@ -48,13 +48,6 @@ export const SEATS: Seat[] = [0, 1, 2, 3];
 /** Team 0 = North/South, Team 1 = East/West. */
 export type Team = 0 | 1;
 
-export const SEAT_NAMES: Record<Seat, string> = {
-  0: 'You',
-  1: 'West',
-  2: 'North',
-  3: 'East',
-};
-
 export const TEAM_NAMES: Record<Team, string> = {
   0: 'North / South',
   1: 'East / West',

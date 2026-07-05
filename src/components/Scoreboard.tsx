@@ -1,5 +1,5 @@
 import { GameState } from '../game/engine';
-import { SEAT_NAMES, TEAM_NAMES } from '../game/types';
+import { TEAM_NAMES } from '../game/types';
 import { suitChar } from './CardView';
 
 /** A label with a compact variant for the mobile top strip. */
@@ -38,7 +38,7 @@ export default function Scoreboard({ state }: { state: GameState }) {
         <b>
           {state.bid ?? state.highBid ?? '—'}
           {state.bidder !== null && (
-            <span className="bidder-tag"> · {SEAT_NAMES[state.bidder]}</span>
+            <span className="bidder-tag"> · {state.playerNames[state.bidder]}</span>
           )}
         </b>
       </div>

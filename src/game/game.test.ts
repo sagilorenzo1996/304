@@ -127,6 +127,51 @@ describe('bidding', () => {
   });
 });
 
+describe('player names', () => {
+  it('randomizes distinct opponent names and keeps seat 0 as "You"', () => {
+    const s = createRound(3, [0, 0], 1, mulberry32(1));
+    expect(s.playerNames[0]).toBe('You');
+    const opponentNames = [s.playerNames[1], s.playerNames[2], s.playerNames[3]];
+    expect(new Set(opponentNames).size).toBe(3);
+    expect(s.message).toContain(s.playerNames[s.dealer]);
+  });
+
+  it('carries the same names through a redeal', () => {
+    let s = createRound(3, [0, 0], 1, mulberry32(1));
+    const original = s.playerNames;
+    for (let i = 0; i < 4; i++) s = placeBid(s, s.bidTurn, null, mulberry32(2));
+    expect(s.phase).toBe('bidding'); // redealt
+    expect(s.playerNames).toEqual(original);
+  });
+
+  it('carries the same names into the next round', () => {
+    let s = createRound(3, [0, 0], 1, mulberry32(1));
+    const original = s.playerNames;
+    s = placeBid(s, 0, MIN_BID);
+    s = placeBid(s, 1, null);
+    s = placeBid(s, 2, null);
+    s = placeBid(s, 3, null);
+    s = selectTrump(s, chooseTrumpCard(s, 0));
+    let guard = 0;
+    while (s.phase === 'playing' && guard++ < 200) {
+      if (s.trickComplete) {
+        s = collectTrick(s);
+        continue;
+      }
+      const legal = legalMoves(s.hands[s.turn], s.currentTrick);
+      s = playCard(s, s.turn, legal[0].id);
+    }
+    s = nextRound(s, mulberry32(2));
+    expect(s.playerNames).toEqual(original);
+  });
+
+  it('uses the assigned names in engine messages', () => {
+    let s = createRound(3, [0, 0], 1, mulberry32(1));
+    s = placeBid(s, 0, MIN_BID);
+    expect(s.message).toBe(`${s.playerNames[0]} bids ${MIN_BID}.`);
+  });
+});
+
 describe('trump selection and second deal', () => {
   it('conceals the chosen card and deals everyone up to 8', () => {
     let s = createRound(3, [0, 0], 1, mulberry32(1));

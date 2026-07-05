@@ -1,5 +1,4 @@
 import { BID_STEP, GameState, isValidBid, MAX_BID, MIN_BID } from '../game/engine';
-import { SEAT_NAMES } from '../game/types';
 import { HUMAN } from '../hooks/useGame';
 import CardView from './CardView';
 
@@ -24,7 +23,7 @@ export default function BiddingModal({ state, onBid }: Props) {
         <p className="modal-sub">
           {state.highBid === null
             ? `Bidding opens at ${MIN_BID}.`
-            : `${SEAT_NAMES[state.highBidder!]} holds the bid at ${state.highBid}.`}
+            : `${state.playerNames[state.highBidder!]} holds the bid at ${state.highBid}.`}
         </p>
         <div className="hand-preview">
           {state.hands[HUMAN].map((c) => (
@@ -34,7 +33,7 @@ export default function BiddingModal({ state, onBid }: Props) {
         <div className="bid-history">
           {state.bidHistory.map((entry, i) => (
             <span key={i} className={`chip ${entry.bid === null ? 'muted' : ''}`}>
-              {SEAT_NAMES[entry.seat]}: {entry.bid ?? 'Pass'}
+              {state.playerNames[entry.seat]}: {entry.bid ?? 'Pass'}
             </span>
           ))}
         </div>
