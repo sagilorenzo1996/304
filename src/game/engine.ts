@@ -4,43 +4,41 @@
  * inside a React reducer and to unit-test headlessly.
  */
 import { buildDeck, Rng, shuffle } from './deck';
+import { randomPlayerNames } from './names';
 import { legalMoves, isVoidInLedSuit, PlayedCard, trickPoints, trickWinner } from './rules';
-import { Card, Seat, SEAT_NAMES, Suit, Team, nextSeat, teamOf } from './types';
+import { BLIND_RANKS, Card, Seat, Suit, Team, nextSeat, teamOf } from './types';
 
 export type Phase = 'bidding' | 'trumpSelection' | 'playing' | 'roundEnd';
 
 /**
  * classic — trump stays concealed; any void player may request the reveal.
- * blind   — only the bidder (who already knows the trump) may reveal it early
- *           by playing it when void; other void seats may instead submit a
- *           face-down guess (see canGuessTrump), or wait for the forced
- *           reveal on the last trick.
+ * blind   — nobody may request a reveal. Any void seat must instead play
+ *           its card face-down (see canGuessTrump) rather than an ordinary
+ *           open play; the bidder alone also has the option to submit the
+ *           sequestered trump card itself (see canSubmitHiddenTrump) as a
+ *           deliberate early reveal. Either way, a reveal only becomes
+ *           known once the trick it happened in is fully resolved, so
+ *           nobody still to act in that trick gets early information.
  * open    — trump is revealed to everyone the instant it is set.
  */
 export type GameMode = 'classic' | 'blind' | 'open';
 
-export const GAME_MODES: { id: GameMode; label: string; description: string }[] = [
-  {
-    id: 'classic',
-    label: 'Classic',
-    description: 'Trump stays hidden until a player void in the led suit asks for it.',
-  },
-  {
-    id: 'blind',
-    label: 'Blind',
-    description:
-      'The bidder may reveal the trump early by playing it when void. Everyone else may only guess — playing a card face-down that reveals the trump if it matches, or stays hidden forever if it doesn’t.',
-  },
-  {
-    id: 'open',
-    label: 'Open',
-    description: 'Trump is revealed to everyone the moment the bidder sets it.',
-  },
-];
+/** Mode ids in menu order; labels and descriptions live in the i18n dictionary. */
+export const GAME_MODES: GameMode[] = ['classic', 'blind', 'open'];
 
 export const MIN_BID = 200;
 export const MAX_BID = 304;
 export const BID_STEP = 10;
+
+/** Blind mode's stripped 24-card deck holds fewer points to fight over, so it opens lower. */
+const MIN_BID_BY_MODE: Record<GameMode, number> = { classic: MIN_BID, open: MIN_BID, blind: 180 };
+
+export function minBidFor(mode: GameMode): number {
+  return MIN_BID_BY_MODE[mode];
+}
+
+/** Cards dealt per player in each of the two deals (doubled for the full hand size). */
+const DEAL_CHUNK: Record<GameMode, number> = { classic: 4, open: 4, blind: 3 };
 
 export interface BidEntry {
   seat: Seat;
@@ -56,6 +54,20 @@ export interface RoundResult {
   success: boolean;
 }
 
+/**
+ * A translatable fragment of a game message: a dictionary key (see
+ * src/i18n/translations.ts, `msg.*`) plus the values to interpolate into
+ * it. Keeping messages structured — instead of baking English text in here
+ * — is what lets the UI render them in whichever language is active.
+ */
+export interface MessagePart {
+  key: string;
+  params?: Record<string, string | number>;
+}
+
+/** One or more parts joined (by the UI) into the full status line. */
+export type EngineMessage = MessagePart[];
+
 export interface GameState {
   phase: Phase;
   mode: GameMode;
@@ -63,6 +75,8 @@ export interface GameState {
   dealer: Seat;
   hands: Card[][]; // indexed by seat
   pending: Card[]; // the 16 cards held back for the second deal
+  /** Display names, randomized once per match and carried through every round. */
+  playerNames: Record<Seat, string>;
 
   // Bidding
   passed: boolean[];
@@ -77,6 +91,8 @@ export interface GameState {
   trumpCard: Card | null; // the concealed indicator card
   trumpRevealed: boolean;
   revealSeat: Seat | null;
+  /** Seats whose face-down play this trick will expose the trump once the trick ends. */
+  pendingReveals: Seat[];
 
   // Trick play
   leader: Seat;
@@ -85,6 +101,7 @@ export interface GameState {
   trickComplete: boolean;
   trickWinnerSeat: Seat | null;
   tricksPlayed: number;
+  totalTricks: number; // 8 normally, 6 in blind mode's stripped deck
   trickHistory: PlayedCard[][]; // completed tricks, in play order
 
   // Scoring
@@ -92,7 +109,7 @@ export interface GameState {
   matchWins: [number, number]; // rounds won [NS, EW]
   roundResult: RoundResult | null;
 
-  message: string;
+  message: EngineMessage;
 }
 
 export function trumpSuitOf(state: GameState): Suit | null {
@@ -104,19 +121,29 @@ export function effectiveTrump(state: GameState): Suit | null {
   return state.trumpRevealed ? trumpSuitOf(state) : null;
 }
 
-/** Deal the first 4 cards to each player and open the bidding. */
+/**
+ * Deal the first cards to each player and open the bidding — 4 each from
+ * the full 32-card deck normally, or 3 each from blind mode's stripped
+ * 24-card deck (no 7s or 8s).
+ *
+ * `playerNames` defaults to a fresh random draw (seat 0 is always "You");
+ * pass the previous round's `state.playerNames` through on a redeal or
+ * `nextRound` so the same opponents keep their names for the whole match.
+ */
 export function createRound(
   dealer: Seat,
   matchWins: [number, number],
   round: number,
   rng: Rng = Math.random,
   mode: GameMode = 'classic',
+  playerNames: Record<Seat, string> = randomPlayerNames(rng),
 ): GameState {
-  const deck = shuffle(buildDeck(), rng);
+  const chunk = DEAL_CHUNK[mode];
+  const deck = shuffle(mode === 'blind' ? buildDeck(BLIND_RANKS) : buildDeck(), rng);
   const hands: Card[][] = [[], [], [], []];
   let seat = nextSeat(dealer);
   for (let i = 0; i < 4; i++) {
-    hands[seat] = deck.slice(i * 4, i * 4 + 4);
+    hands[seat] = deck.slice(i * chunk, i * chunk + chunk);
     seat = nextSeat(seat);
   }
   const firstToBid = nextSeat(dealer);
@@ -126,7 +153,8 @@ export function createRound(
     round,
     dealer,
     hands,
-    pending: deck.slice(16),
+    pending: deck.slice(4 * chunk),
+    playerNames,
     passed: [false, false, false, false],
     bidHistory: [],
     highBid: null,
@@ -137,22 +165,26 @@ export function createRound(
     trumpCard: null,
     trumpRevealed: false,
     revealSeat: null,
+    pendingReveals: [],
     leader: firstToBid,
     turn: firstToBid,
     currentTrick: [],
     trickComplete: false,
     trickWinnerSeat: null,
     tricksPlayed: 0,
+    totalTricks: chunk * 2,
     trickHistory: [],
     teamPoints: [0, 0],
     matchWins,
     roundResult: null,
-    message: `Round ${round} — ${SEAT_NAMES[dealer]} deals. Bidding opens at ${MIN_BID}.`,
+    message: [
+      { key: 'msg.roundDeals', params: { round, name: playerNames[dealer], minBid: minBidFor(mode) } },
+    ],
   };
 }
 
 export function isValidBid(state: GameState, bid: number): boolean {
-  if (bid < MIN_BID || bid > MAX_BID) return false;
+  if (bid < minBidFor(state.mode) || bid > MAX_BID) return false;
   if (bid % BID_STEP !== 0 && bid !== MAX_BID) return false;
   return state.highBid === null ? true : bid > state.highBid;
 }
@@ -175,26 +207,35 @@ export function placeBid(
   const s = structuredClone(state);
   if (bid === null) {
     s.passed[seat] = true;
-    s.message = `${SEAT_NAMES[seat]} passes.`;
+    s.message = [{ key: 'msg.passes', params: { name: s.playerNames[seat] } }];
   } else {
     if (!isValidBid(state, bid)) throw new Error(`Invalid bid: ${bid}`);
     s.highBid = bid;
     s.highBidder = seat;
-    s.message = `${SEAT_NAMES[seat]} bids ${bid}.`;
+    s.message = [{ key: 'msg.bids', params: { name: s.playerNames[seat], bid } }];
   }
   s.bidHistory.push({ seat, bid });
 
   const active = ([0, 1, 2, 3] as Seat[]).filter((p) => !s.passed[p]);
   if (active.length === 0) {
-    const redeal = createRound(state.dealer, state.matchWins, state.round, rng, state.mode);
-    redeal.message = 'Everyone passed — the hand is thrown in and redealt.';
+    const redeal = createRound(
+      state.dealer,
+      state.matchWins,
+      state.round,
+      rng,
+      state.mode,
+      state.playerNames,
+    );
+    redeal.message = [{ key: 'msg.redeal' }];
     return redeal;
   }
   if (active.length === 1 && s.highBidder === active[0]) {
     s.bidder = s.highBidder;
     s.bid = s.highBid;
     s.phase = 'trumpSelection';
-    s.message = `${SEAT_NAMES[s.bidder]} wins the auction at ${s.bid} and now sets the trump.`;
+    s.message = [
+      { key: 'msg.auctionWon', params: { name: s.playerNames[s.bidder], bid: s.bid as number } },
+    ];
     return s;
   }
   let next = nextSeat(seat);
@@ -205,8 +246,8 @@ export function placeBid(
 
 /**
  * The auction winner places one card from their hand face down; its suit is
- * the (secret) trump. The remaining 16 cards are then dealt out and play
- * starts with the player left of the dealer.
+ * the (secret) trump. The remaining held-back cards are then dealt out and
+ * play starts with the player left of the dealer.
  */
 export function selectTrump(state: GameState, cardId: string): GameState {
   if (state.phase !== 'trumpSelection') throw new Error('Not in the trump-selection phase');
@@ -219,10 +260,11 @@ export function selectTrump(state: GameState, cardId: string): GameState {
   if (idx === -1) throw new Error('Trump card must come from the bidder’s hand');
   [s.trumpCard] = hand.splice(idx, 1);
 
-  // Second deal: 4 more cards each, starting left of the dealer.
+  // Second deal: the same chunk size again, starting left of the dealer.
+  const chunk = DEAL_CHUNK[s.mode];
   let seat = nextSeat(s.dealer);
   for (let i = 0; i < 4; i++) {
-    s.hands[seat].push(...s.pending.slice(i * 4, i * 4 + 4));
+    s.hands[seat].push(...s.pending.slice(i * chunk, i * chunk + chunk));
     seat = nextSeat(seat);
   }
   s.pending = [];
@@ -233,25 +275,32 @@ export function selectTrump(state: GameState, cardId: string): GameState {
 
   if (s.mode === 'open') {
     doReveal(s, bidder);
-    s.message = `${SEAT_NAMES[bidder]} sets the trump — it is ${suitWord(
-      s.trumpCard!.suit,
-    )}! ${SEAT_NAMES[s.leader]} leads.`;
+    s.message = [
+      {
+        key: 'msg.trumpSetOpen',
+        params: { name: s.playerNames[bidder], suit: s.trumpCard!.suit, leader: s.playerNames[s.leader] },
+      },
+    ];
   } else {
-    s.message = `${SEAT_NAMES[bidder]} placed the trump face down. ${SEAT_NAMES[s.leader]} leads.`;
+    s.message = [
+      {
+        key: 'msg.trumpSetHidden',
+        params: { name: s.playerNames[bidder], leader: s.playerNames[s.leader] },
+      },
+    ];
   }
   return s;
 }
 
 /**
  * A player may ask for the trump to be revealed only when unable to follow
- * suit. In "blind" mode that option is restricted to the bidder — they
- * already know the trump suit, so "requesting" it is really just their
- * choice to play it now; everyone else must stay in the dark until the
- * forced reveal on the last trick.
+ * suit. In "blind" mode this is never allowed, not even for the bidder —
+ * the only way to reveal early is a face-down guess (see canGuessTrump),
+ * or the forced reveal on the last trick.
  */
 export function canRequestReveal(state: GameState, seat: Seat): boolean {
   return (
-    (state.mode !== 'blind' || seat === state.bidder) &&
+    state.mode !== 'blind' &&
     state.phase === 'playing' &&
     !state.trickComplete &&
     !state.trumpRevealed &&
@@ -264,16 +313,25 @@ export function canRequestReveal(state: GameState, seat: Seat): boolean {
 /** Flip the concealed trump card face up and return it to the bidder's hand. */
 export function requestReveal(state: GameState, seat: Seat): GameState {
   if (!canRequestReveal(state, seat)) throw new Error('Trump reveal is not allowed right now');
-  return doReveal(structuredClone(state), seat);
+  const s = doReveal(structuredClone(state), seat);
+  s.message = [
+    { key: 'msg.trumpAsked', params: { name: s.playerNames[seat], suit: s.trumpCard!.suit } },
+  ];
+  return s;
 }
 
-function doReveal(s: GameState, seat: Seat): GameState {
+/**
+ * Flip the trump face up. `consumesTrumpCard` is true when the card that
+ * triggered this reveal *is* the sequestered trump card itself (see
+ * `submitHiddenTrump`) — in that case it has already been played into the
+ * trick, so it must not also be returned to the bidder's hand.
+ */
+function doReveal(s: GameState, seat: Seat, consumesTrumpCard = false): GameState {
   s.trumpRevealed = true;
   s.revealSeat = seat;
-  if (s.bidder !== null && s.trumpCard) {
+  if (!consumesTrumpCard && s.bidder !== null && s.trumpCard) {
     s.hands[s.bidder].push(s.trumpCard);
   }
-  s.message = `${SEAT_NAMES[seat]} asks for the trump — it is ${suitWord(s.trumpCard!.suit)}!`;
   return s;
 }
 
@@ -293,23 +351,26 @@ function autoRevealIfStuck(s: GameState): GameState {
     s.trumpCard
   ) {
     doReveal(s, s.bidder);
-    s.message = `The trump is revealed automatically — it was ${suitWord(s.trumpCard!.suit)}.`;
+    s.message = [{ key: 'msg.trumpAutoRevealed', params: { suit: s.trumpCard!.suit } }];
   }
   return s;
 }
 
 /**
- * In blind mode, a void non-bidder may play a card face-down as a guess at
- * the trump suit instead of an ordinary open play. The bidder — the only
- * one who already knows the trump — silently "checks" it: if the card's
- * suit matches, the trump is revealed to the whole table; if not, the card
- * still resolves the trick normally but its face stays concealed from
- * everyone but the guesser and the bidder for the rest of the game.
+ * In blind mode, a void seat must play its card face-down instead of an
+ * ordinary open play (see the mandatory check in `playCard`). If the
+ * card's suit matches the trump, it is revealed; if not, the card still
+ * resolves the trick normally but its face stays concealed from everyone
+ * else for the rest of the game. This is a genuine guess for everyone —
+ * including the bidder, whose own hand cards never expose the trump this
+ * way even when they happen to share its suit (see `playCard`); the
+ * bidder's deliberate reveal is `submitHiddenTrump` instead. A reveal
+ * triggered here is only announced once the trick it happened in ends
+ * (see `finishTrick`), so nobody still to act in that trick learns early.
  */
 export function canGuessTrump(state: GameState, seat: Seat): boolean {
   return (
     state.mode === 'blind' &&
-    seat !== state.bidder &&
     state.phase === 'playing' &&
     !state.trickComplete &&
     !state.trumpRevealed &&
@@ -319,12 +380,42 @@ export function canGuessTrump(state: GameState, seat: Seat): boolean {
   );
 }
 
+/**
+ * Only the bidder, and only in blind mode, may submit the sequestered
+ * trump card itself in place of a hand card while void — a deliberate
+ * early reveal, as opposed to playing an ordinary hand card face-down
+ * (see canGuessTrump), which never reveals anything for the bidder no
+ * matter its suit.
+ */
+export function canSubmitHiddenTrump(state: GameState, seat: Seat): boolean {
+  return state.bidder === seat && canGuessTrump(state, seat);
+}
+
+/**
+ * The bidder plays their sequestered trump card directly, without it ever
+ * passing through their hand. This always exposes the trump — but, like
+ * every reveal in blind mode, only once the trick it happened in ends.
+ */
+export function submitHiddenTrump(state: GameState, seat: Seat): GameState {
+  if (!canSubmitHiddenTrump(state, seat)) {
+    throw new Error('Cannot submit the hidden trump right now');
+  }
+  const s = structuredClone(state);
+  const card = s.trumpCard as Card;
+  s.currentTrick.push({ seat, card, concealed: true });
+  s.pendingReveals.push(seat);
+  return finishTrick(s, seat);
+}
+
 export function playCard(state: GameState, seat: Seat, cardId: string, guess = false): GameState {
   if (state.phase !== 'playing') throw new Error('Not in the playing phase');
   if (state.trickComplete) throw new Error('The finished trick must be collected first');
   if (seat !== state.turn) throw new Error(`It is not seat ${seat}'s turn`);
   if (guess && !canGuessTrump(state, seat)) {
     throw new Error('Cannot play a hidden trump guess right now');
+  }
+  if (!guess && canGuessTrump(state, seat)) {
+    throw new Error('Void in blind mode before the reveal: the card must be played face-down');
   }
 
   const s = structuredClone(state);
@@ -336,22 +427,46 @@ export function playCard(state: GameState, seat: Seat, cardId: string, guess = f
   }
 
   s.hands[seat] = hand.filter((c) => c.id !== cardId);
-  const guessedTrump = guess && card.suit === trumpSuitOf(s);
-  s.currentTrick.push({ seat, card, concealed: guess && !guessedTrump });
+  // The bidder already knows the trump, so their own hand cards never
+  // count as a guess-hit — only submitHiddenTrump reveals for them.
+  const guessedTrump = guess && seat !== s.bidder && card.suit === trumpSuitOf(s);
+  s.currentTrick.push({ seat, card, concealed: guess });
+  if (guessedTrump) s.pendingReveals.push(seat);
 
-  if (guessedTrump) {
-    doReveal(s, seat);
-    s.message = `${SEAT_NAMES[seat]}’s hidden card exposes the trump — it is ${suitWord(
-      s.trumpCard!.suit,
-    )}!`;
-  }
+  return finishTrick(s, seat);
+}
 
+/**
+ * Complete the trick if this was its fourth card — applying any reveals
+ * earned this trick only now, so they were never visible to a seat still
+ * to act in the same trick — or hand off to the next seat.
+ */
+function finishTrick(s: GameState, seat: Seat): GameState {
   if (s.currentTrick.length === 4) {
+    const revealMessages: MessagePart[] = [];
+    if (s.pendingReveals.length > 0) {
+      // Only true when the bidder's own submitted trump card is what
+      // triggered the reveal — it's already in the trick and must not
+      // also be pushed back into their hand.
+      const trumpAlreadyPlayed = s.currentTrick.some((p) => p.card.id === s.trumpCard?.id);
+      for (const revealer of s.pendingReveals) {
+        const entry = s.currentTrick.find((p) => p.seat === revealer);
+        if (entry) entry.concealed = false;
+        doReveal(s, revealer, trumpAlreadyPlayed);
+        revealMessages.push({
+          key: 'msg.hiddenCardExposesTrump',
+          params: { name: s.playerNames[revealer], suit: s.trumpCard!.suit },
+        });
+      }
+      s.pendingReveals = [];
+    }
     s.trickComplete = true;
     s.trickWinnerSeat = trickWinner(s.currentTrick, effectiveTrump(s));
     const pts = trickPoints(s.currentTrick);
-    const trickMsg = `${SEAT_NAMES[s.trickWinnerSeat]} takes the trick (+${pts} points).`;
-    s.message = guessedTrump ? `${s.message} ${trickMsg}` : trickMsg;
+    s.message = [
+      ...revealMessages,
+      { key: 'msg.takesTrick', params: { name: s.playerNames[s.trickWinnerSeat], points: pts } },
+    ];
     return s;
   }
   s.turn = nextSeat(seat);
@@ -374,7 +489,7 @@ export function collectTrick(state: GameState): GameState {
   s.leader = winner;
   s.turn = winner;
 
-  if (s.tricksPlayed === 8) {
+  if (s.tricksPlayed === s.totalTricks) {
     const bidderTeam = teamOf(s.bidder as Seat);
     const bidderTeamPoints = s.teamPoints[bidderTeam];
     const success = bidderTeamPoints >= (s.bid as number);
@@ -388,20 +503,26 @@ export function collectTrick(state: GameState): GameState {
     };
     s.matchWins[success ? bidderTeam : ((1 - bidderTeam) as Team)] += 1;
     s.phase = 'roundEnd';
-    s.message = success
-      ? `Bid made! The bidding team took ${bidderTeamPoints} of ${s.bid}.`
-      : `Bid failed — the bidding team took only ${bidderTeamPoints} of ${s.bid}.`;
+    s.message = [
+      {
+        key: success ? 'msg.bidMade' : 'msg.bidFailed',
+        params: { points: bidderTeamPoints, bid: s.bid as number },
+      },
+    ];
     return s;
   }
-  s.message = `${SEAT_NAMES[winner]} leads the next trick.`;
+  s.message = [{ key: 'msg.leadsNextTrick', params: { name: s.playerNames[winner] } }];
   return autoRevealIfStuck(s);
 }
 
 export function nextRound(state: GameState, rng: Rng = Math.random): GameState {
   if (state.phase !== 'roundEnd') throw new Error('The round is not over yet');
-  return createRound(nextSeat(state.dealer), state.matchWins, state.round + 1, rng, state.mode);
-}
-
-function suitWord(suit: Suit): string {
-  return { S: '♠ Spades', H: '♥ Hearts', D: '♦ Diamonds', C: '♣ Clubs' }[suit];
+  return createRound(
+    nextSeat(state.dealer),
+    state.matchWins,
+    state.round + 1,
+    rng,
+    state.mode,
+    state.playerNames,
+  );
 }

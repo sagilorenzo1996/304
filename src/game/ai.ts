@@ -9,16 +9,19 @@
 import {
   canGuessTrump,
   canRequestReveal,
+  canSubmitHiddenTrump,
   effectiveTrump,
   GameState,
   isValidBid,
-  MIN_BID,
+  minBidFor,
   BID_STEP,
   trumpSuitOf,
 } from './engine';
 import { currentWinner, isVoidInLedSuit, legalMoves, trickPoints } from './rules';
 import {
+  BLIND_RANKS,
   Card,
+  Rank,
   RANK_POWER,
   RANKS,
   Seat,
@@ -33,6 +36,7 @@ import {
 
 export type AiMove =
   | { action: 'reveal' }
+  | { action: 'submitTrump' }
   | { action: 'play'; cardId: string }
   | { action: 'guess'; cardId: string };
 
@@ -45,6 +49,8 @@ export interface Memory {
   seen: Set<string>;
   /** voids[seat][suit] — that seat has shown out of that suit. */
   voids: Record<Suit, boolean>[];
+  /** The ranks actually in play this round (blind mode drops 7s and 8s). */
+  ranks: Rank[];
 }
 
 /** Everything `seat` can legitimately know about the deal so far. */
@@ -68,7 +74,7 @@ export function buildMemory(state: GameState, seat: Seat): Memory {
   if (state.trumpCard && (state.trumpRevealed || seat === state.bidder)) {
     seen.add(state.trumpCard.id);
   }
-  return { seen, voids };
+  return { seen, voids, ranks: state.mode === 'blind' ? BLIND_RANKS : RANKS };
 }
 
 /**
@@ -76,14 +82,14 @@ export function buildMemory(state: GameState, seat: Seat): Memory {
  * else can beat it in that suit (it may still fall to a trump).
  */
 export function isBoss(card: Card, mem: Memory): boolean {
-  return RANKS.every(
+  return mem.ranks.every(
     (rank) =>
       RANK_POWER[rank] <= cardPower(card) || mem.seen.has(`${card.suit}-${rank}`),
   );
 }
 
 const unseenInSuit = (suit: Suit, mem: Memory): number =>
-  RANKS.filter((rank) => !mem.seen.has(`${suit}-${rank}`)).length;
+  mem.ranks.filter((rank) => !mem.seen.has(`${suit}-${rank}`)).length;
 
 // ---------------------------------------------------------------------------
 // Bidding
@@ -123,7 +129,7 @@ export function chooseBid(state: GameState, seat: Seat): number | null {
     .reduce((sum, c) => sum + cardPoints(c), 0);
 
   const willingness = 190 + best + Math.round(sidePoints * 0.3);
-  const need = state.highBid === null ? MIN_BID : state.highBid + BID_STEP;
+  const need = state.highBid === null ? minBidFor(state.mode) : state.highBid + BID_STEP;
   if (need > willingness || !isValidBid(state, need)) return null;
   return need;
 }
@@ -169,14 +175,14 @@ const feedCard = (cards: Card[]): Card =>
 const play = (card: Card): AiMove => ({ action: 'play', cardId: card.id });
 
 /**
- * Playing AI. May return `{action:'reveal'}` when void in the led suit;
- * the caller applies the reveal and asks again for the actual card.
- *
- * In blind mode, a void non-bidder can't request a reveal at all — but
- * submitting their planned discard as a face-down trump guess costs them
- * nothing (the trick resolves identically either way) and can only help
- * their side learn the trump, so they always take the option when it's
- * available.
+ * Playing AI. May return `{action:'reveal'}` (classic mode) or
+ * `{action:'submitTrump'}` (blind mode, bidder only) when void in the led
+ * suit and worth revealing for; the caller applies that and asks again for
+ * the actual card. In blind mode, any other void play — including the
+ * bidder's, when it doesn't want to reveal — is required to go as a
+ * face-down guess instead (canGuessTrump), so this wraps the outcome of the
+ * ordinary decision logic accordingly rather than choosing whether to
+ * guess.
  */
 export function choosePlay(state: GameState, seat: Seat): AiMove {
   const move = decidePlay(state, seat);
@@ -287,7 +293,9 @@ function decidePlay(state: GameState, seat: Seat): AiMove {
 
   const voidInLed = isVoidInLedSuit(hand, trick);
 
-  // Consider asking for the trump reveal when unable to follow suit.
+  // Consider a deliberate reveal when unable to follow suit: classic mode
+  // lets any void seat request it; blind mode instead lets the bidder
+  // submit the sequestered trump card as their play.
   if (voidInLed && canRequestReveal(state, seat)) {
     const groups = bySuit(hand);
     const wantsReveal = isBidder
@@ -304,6 +312,12 @@ function decidePlay(state: GameState, seat: Seat): AiMove {
             (groups[suit].length >= 2 && groups[suit].some((c) => c.rank === '9')),
         );
     if (wantsReveal) return { action: 'reveal' };
+  } else if (voidInLed && canSubmitHiddenTrump(state, seat)) {
+    // Same reasoning as the bidder's classic-mode reveal above, since the
+    // bidder always knows the trump: worth it only when holding trumps to
+    // use and something worth taking.
+    const wantsReveal = hand.some((c) => c.suit === trumpSuit) && (!partnerWinning || trickPts >= 20);
+    if (wantsReveal) return { action: 'submitTrump' };
   }
 
   const partnerSecure = partnerWinning && !beatableByOpponent(winner.card);

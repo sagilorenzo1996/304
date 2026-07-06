@@ -1,6 +1,7 @@
 import { GameState } from '../game/engine';
 import { useGame, HUMAN } from '../hooks/useGame';
 import BiddingModal from './BiddingModal';
+import LanguageToggle from './LanguageToggle';
 import MuteButton from './MuteButton';
 import RoundEndModal from './RoundEndModal';
 import Scoreboard from './Scoreboard';
@@ -24,8 +25,10 @@ export default function GameScreen({ initialState }: Props) {
         state={state}
         onPlayCard={(cardId, guess) => dispatch({ type: 'PLAY', seat: HUMAN, cardId, guess })}
         onRequestReveal={() => dispatch({ type: 'REVEAL', seat: HUMAN })}
+        onSubmitHiddenTrump={() => dispatch({ type: 'SUBMIT_HIDDEN_TRUMP', seat: HUMAN })}
       />
       <Scoreboard state={state} />
+      <LanguageToggle className="language-toggle--game" />
       <MuteButton />
       {humanBidding && (
         <BiddingModal state={state} onBid={(bid) => dispatch({ type: 'BID', seat: HUMAN, bid })} />
