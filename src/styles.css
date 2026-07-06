@@ -588,6 +588,44 @@ body {
   right: 74px; /* 20 (mute's inset) + 44 (mute's width) + 10 (gap) */
 }
 
+.game-toolbar {
+  position: absolute;
+  top: 20px;
+  right: 128px; /* 74 (language toggle's inset) + 44 (its width) + 10 (gap) */
+  z-index: 20; /* stays reachable above modal overlays */
+}
+
+.menu-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(0, 0, 0, 0.6);
+  color: #eee;
+  font-size: 20px;
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+
+.menu-btn:hover {
+  transform: scale(1.1);
+}
+
+.menu-dropdown {
+  position: absolute;
+  top: 52px;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+  padding: 10px;
+  min-width: 170px;
+  white-space: nowrap;
+}
+
 /* ---------- Modals ---------- */
 
 .overlay {
@@ -893,6 +931,26 @@ body {
   .language-toggle--game {
     right: 44px; /* 4 (mute's inset) + 36 (mute's width) + 4 (gap) */
     background: rgba(0, 0, 0, 0.4);
+  }
+
+  .game-toolbar {
+    top: 3px;
+    right: 84px; /* 44 (language toggle's inset) + 36 (its width) + 4 (gap) */
+  }
+
+  .menu-btn {
+    width: 36px;
+    height: 36px;
+    font-size: 13px;
+    background: rgba(0, 0, 0, 0.4);
+    border: none;
+  }
+
+  .menu-dropdown {
+    top: 40px;
+    font-size: 12px;
+    padding: 6px;
+    min-width: 140px;
   }
 
   .message-bar {

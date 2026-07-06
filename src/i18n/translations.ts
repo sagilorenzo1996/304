@@ -25,6 +25,7 @@ export const TRANSLATIONS: Record<Language, Dictionary> = {
     'home.newGame': 'New Game',
     'home.resumeGame': 'Resume Game',
     'home.howToPlay': 'How to Play',
+    'home.stats': 'Stats',
 
     // Game modes
     'mode.classic.label': 'Classic',
@@ -107,6 +108,25 @@ export const TRANSLATIONS: Record<Language, Dictionary> = {
     'mute.mute': 'Mute sounds',
     'mute.unmute': 'Unmute sounds',
 
+    // In-game menu
+    'game.menu': 'Menu',
+    'game.howToPlay': '❓ How to Play',
+    'game.quitToMenu': '🏠 Quit to Menu',
+
+    // Stats modal
+    'stats.title': 'Your Stats',
+    'stats.roundsPlayed': 'Rounds played',
+    'stats.roundsWon': 'Rounds won',
+    'stats.roundsLost': 'Rounds lost',
+    'stats.winRate': 'Win rate',
+    'stats.currentStreak': 'Current streak',
+    'stats.bestStreak': 'Best streak',
+    'stats.bidsAttempted': 'Times you bid',
+    'stats.bidsMade': 'Bids made',
+    'stats.highestBidMade': 'Highest bid made',
+    'stats.totalPointsWon': 'Total points won',
+    'stats.close': 'Close',
+
     // Teams
     'team.0': 'North / South',
     'team.1': 'East / West',
@@ -142,6 +162,7 @@ export const TRANSLATIONS: Record<Language, Dictionary> = {
     'home.newGame': 'නව ක්‍රීඩාවක්',
     'home.resumeGame': 'ක්‍රීඩාව නැවත ආරම්භ කරන්න',
     'home.howToPlay': 'ක්‍රීඩා කරන ආකාරය',
+    'home.stats': 'සංඛ්‍යාලේඛන',
 
     // Game modes
     'mode.classic.label': 'සම්භාව්‍ය',
@@ -224,6 +245,25 @@ export const TRANSLATIONS: Record<Language, Dictionary> = {
     // Mute button
     'mute.mute': 'ශබ්ද නිශ්ශබ්ද කරන්න',
     'mute.unmute': 'ශබ්ද සක්‍රිය කරන්න',
+
+    // In-game menu
+    'game.menu': 'මෙනුව',
+    'game.howToPlay': '❓ ක්‍රීඩා කරන ආකාරය',
+    'game.quitToMenu': '🏠 මෙනුවට යන්න',
+
+    // Stats modal
+    'stats.title': 'ඔබේ සංඛ්‍යාලේඛන',
+    'stats.roundsPlayed': 'ක්‍රීඩා කළ රවුම්',
+    'stats.roundsWon': 'දිනූ රවුම්',
+    'stats.roundsLost': 'පැරදුණු රවුම්',
+    'stats.winRate': 'ජයග්‍රහණ අනුපාතය',
+    'stats.currentStreak': 'වත්මන් ජයග්‍රාහී පෙළ',
+    'stats.bestStreak': 'හොඳම ජයග්‍රාහී පෙළ',
+    'stats.bidsAttempted': 'ඔබ ලංසු තැබූ වාර ගණන',
+    'stats.bidsMade': 'සම්පූර්ණ කළ ලංසු',
+    'stats.highestBidMade': 'ඉහළම සාර්ථක ලංසුව',
+    'stats.totalPointsWon': 'මුළු ලබාගත් ලකුණු',
+    'stats.close': 'වසන්න',
 
     // Teams
     'team.0': 'උතුර / දකුණ',
