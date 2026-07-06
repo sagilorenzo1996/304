@@ -1,5 +1,6 @@
 import { useEffect, useReducer, useRef } from 'react';
 import { sfx } from '../audio/sfx';
+import { recordRoundResult } from '../lib/stats';
 import { saveGame } from '../lib/storage';
 import { chooseBid, choosePlay, chooseTrumpCard } from '../game/ai';
 import {
@@ -101,6 +102,7 @@ export function useGame(initialState: GameState) {
     if (state.phase === 'roundEnd' && prev.phase !== 'roundEnd' && state.roundResult) {
       const humanTeamWon = (state.roundResult.bidderTeam === 0) === state.roundResult.success;
       humanTeamWon ? sfx.roundWin() : sfx.roundLose();
+      recordRoundResult(state.roundResult);
     }
   }, [state]);
 

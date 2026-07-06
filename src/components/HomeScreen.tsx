@@ -5,6 +5,7 @@ import { loadPlayerName, loadSavedGame, clearSavedGame, savePlayerName } from '.
 import ConfirmNewGameModal from './ConfirmNewGameModal';
 import HowToPlayModal from './HowToPlayModal';
 import LanguageToggle from './LanguageToggle';
+import StatsModal from './StatsModal';
 
 interface Props {
   onStart: (state: GameState) => void;
@@ -17,6 +18,7 @@ export default function HomeScreen({ onStart }: Props) {
   const [mode, setMode] = useState<GameMode>('classic');
   const [confirmingNewGame, setConfirmingNewGame] = useState(false);
   const [howToPlayOpen, setHowToPlayOpen] = useState(false);
+  const [statsOpen, setStatsOpen] = useState(false);
 
   useEffect(() => {
     savePlayerName(name.trim());
@@ -76,6 +78,9 @@ export default function HomeScreen({ onStart }: Props) {
             <button className="btn" onClick={() => setHowToPlayOpen(true)}>
               {t('home.howToPlay')}
             </button>
+            <button className="btn" onClick={() => setStatsOpen(true)}>
+              {t('home.stats')}
+            </button>
           </div>
         </div>
       </div>
@@ -89,6 +94,7 @@ export default function HomeScreen({ onStart }: Props) {
         />
       )}
       {howToPlayOpen && <HowToPlayModal onClose={() => setHowToPlayOpen(false)} />}
+      {statsOpen && <StatsModal onClose={() => setStatsOpen(false)} />}
     </>
   );
 }

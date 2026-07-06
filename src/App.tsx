@@ -15,11 +15,18 @@ export default function App() {
     setScreen('game');
   };
 
+  const handleQuit = () => {
+    setScreen('home');
+    setInitialGameState(null);
+  };
+
   return (
     <LanguageProvider>
       <div className="app">
         {screen === 'home' && <HomeScreen onStart={handleStart} />}
-        {screen === 'game' && initialGameState && <GameScreen initialState={initialGameState} />}
+        {screen === 'game' && initialGameState && (
+          <GameScreen initialState={initialGameState} onQuit={handleQuit} />
+        )}
       </div>
     </LanguageProvider>
   );
