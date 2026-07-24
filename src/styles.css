@@ -323,14 +323,12 @@ body {
 }
 
 .reveal-btn {
-  position: absolute;
-  top: -54px;
-  left: 50%;
-  transform: translateX(-50%);
   background: var(--gold);
   color: #3c2a05;
   font-weight: 700;
   font-size: var(--fs-sm);
+  text-align: center;
+  max-width: min(90vw, 320px);
   border: none;
   border-radius: 999px;
   padding: 10px 20px;
@@ -1016,10 +1014,6 @@ body {
 
   .card.clickable:hover {
     transform: none; /* no hover lift on touch screens */
-  }
-
-  .reveal-btn {
-    top: -48px;
   }
 
   .trump-banner {
