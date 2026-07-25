@@ -231,6 +231,15 @@ body {
   border: 3px solid #fff;
 }
 
+/* A concealed card whose identity this viewer is allowed to know: still
+   reads as face-down, but its rank/suit ghost through so they can tell
+   which card it is without it looking like an ordinary revealed play. */
+.card.back.peek .corner,
+.card.back.peek .pip {
+  color: #fff;
+  opacity: 0.45;
+}
+
 .card.red {
   color: #c0392b;
 }

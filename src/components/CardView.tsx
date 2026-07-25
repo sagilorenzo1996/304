@@ -6,6 +6,9 @@ const RED_SUITS: Suit[] = ['H', 'D'];
 interface Props {
   card?: Card;
   faceDown?: boolean;
+  /** Face-down, but with the rank/suit faintly visible through the back —
+   *  for a concealed card whose identity this viewer is allowed to know. */
+  peek?: boolean;
   small?: boolean;
   disabled?: boolean;
   onClick?: () => void;
@@ -13,11 +16,12 @@ interface Props {
   className?: string;
 }
 
-export default function CardView({ card, faceDown, small, disabled, onClick, style, className }: Props) {
+export default function CardView({ card, faceDown, peek, small, disabled, onClick, style, className }: Props) {
   const classes = ['card'];
   if (small) classes.push('small');
   if (faceDown || !card) classes.push('back');
   else classes.push(RED_SUITS.includes(card.suit) ? 'red' : 'black');
+  if (faceDown && peek && card) classes.push('peek');
   if (disabled) classes.push('disabled');
   if (onClick && !disabled) classes.push('clickable');
   if (className) classes.push(className);
@@ -29,7 +33,7 @@ export default function CardView({ card, faceDown, small, disabled, onClick, sty
       onClick={disabled ? undefined : onClick}
       role={onClick ? 'button' : undefined}
     >
-      {!faceDown && card && (
+      {(!faceDown || peek) && card && (
         <>
           <div className="corner tl">
             <span>{card.rank}</span>
