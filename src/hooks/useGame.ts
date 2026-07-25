@@ -1,5 +1,6 @@
 import { useEffect, useReducer, useRef } from 'react';
 import { sfx } from '../audio/sfx';
+import { recordRoundResult } from '../lib/stats';
 import { saveGame } from '../lib/storage';
 import { chooseBid, choosePlay, chooseTrumpCard } from '../game/ai';
 import {
@@ -10,6 +11,7 @@ import {
   playCard,
   requestReveal,
   selectTrump,
+  submitHiddenTrump,
 } from '../game/engine';
 import { Seat } from '../game/types';
 
@@ -21,8 +23,9 @@ const COLLECT_DELAY_MS = 1600;
 export type GameAction =
   | { type: 'BID'; seat: Seat; bid: number | null }
   | { type: 'SELECT_TRUMP'; cardId: string }
-  | { type: 'PLAY'; seat: Seat; cardId: string }
+  | { type: 'PLAY'; seat: Seat; cardId: string; guess?: boolean }
   | { type: 'REVEAL'; seat: Seat }
+  | { type: 'SUBMIT_HIDDEN_TRUMP'; seat: Seat }
   | { type: 'COLLECT' }
   | { type: 'NEXT_ROUND' }
   | { type: 'AI_BID' }
@@ -37,9 +40,11 @@ function reducer(state: GameState, action: GameAction): GameState {
       case 'SELECT_TRUMP':
         return selectTrump(state, action.cardId);
       case 'PLAY':
-        return playCard(state, action.seat, action.cardId);
+        return playCard(state, action.seat, action.cardId, action.guess);
       case 'REVEAL':
         return requestReveal(state, action.seat);
+      case 'SUBMIT_HIDDEN_TRUMP':
+        return submitHiddenTrump(state, action.seat);
       case 'COLLECT':
         return collectTrick(state);
       case 'NEXT_ROUND':
@@ -50,9 +55,9 @@ function reducer(state: GameState, action: GameAction): GameState {
         return selectTrump(state, chooseTrumpCard(state, state.bidder as Seat));
       case 'AI_PLAY': {
         const move = choosePlay(state, state.turn);
-        return move.action === 'reveal'
-          ? requestReveal(state, state.turn)
-          : playCard(state, state.turn, move.cardId);
+        if (move.action === 'reveal') return requestReveal(state, state.turn);
+        if (move.action === 'submitTrump') return submitHiddenTrump(state, state.turn);
+        return playCard(state, state.turn, move.cardId, move.action === 'guess');
       }
     }
   } catch (err) {
@@ -97,6 +102,7 @@ export function useGame(initialState: GameState) {
     if (state.phase === 'roundEnd' && prev.phase !== 'roundEnd' && state.roundResult) {
       const humanTeamWon = (state.roundResult.bidderTeam === 0) === state.roundResult.success;
       humanTeamWon ? sfx.roundWin() : sfx.roundLose();
+      recordRoundResult(state.roundResult);
     }
   }, [state]);
 

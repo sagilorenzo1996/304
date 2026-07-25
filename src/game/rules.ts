@@ -3,6 +3,12 @@ import { Card, Seat, Suit, cardPoints, cardPower } from './types';
 export interface PlayedCard {
   seat: Seat;
   card: Card;
+  /**
+   * True for a failed "blind mode" trump guess: the card is used normally to
+   * resolve the trick, but its face stays hidden from everyone except the
+   * seat that played it and the bidder, for the rest of the game.
+   */
+  concealed?: boolean;
 }
 
 /**

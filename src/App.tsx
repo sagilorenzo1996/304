@@ -2,6 +2,7 @@ import { useState } from 'react';
 import GameScreen from './components/GameScreen';
 import HomeScreen from './components/HomeScreen';
 import { GameState } from './game/engine';
+import { LanguageProvider } from './i18n/LanguageContext';
 
 type Screen = 'home' | 'game';
 
@@ -14,10 +15,19 @@ export default function App() {
     setScreen('game');
   };
 
+  const handleQuit = () => {
+    setScreen('home');
+    setInitialGameState(null);
+  };
+
   return (
-    <div className="app">
-      {screen === 'home' && <HomeScreen onStart={handleStart} />}
-      {screen === 'game' && initialGameState && <GameScreen initialState={initialGameState} />}
-    </div>
+    <LanguageProvider>
+      <div className="app">
+        {screen === 'home' && <HomeScreen onStart={handleStart} />}
+        {screen === 'game' && initialGameState && (
+          <GameScreen initialState={initialGameState} onQuit={handleQuit} />
+        )}
+      </div>
+    </LanguageProvider>
   );
 }

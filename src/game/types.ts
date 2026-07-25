@@ -8,6 +8,9 @@ export type Rank = 'J' | '9' | 'A' | '10' | 'K' | 'Q' | '8' | '7';
 /** Ranks in descending order of trick-taking power (J is highest in 304). */
 export const RANKS: Rank[] = ['J', '9', 'A', '10', 'K', 'Q', '8', '7'];
 
+/** Blind mode drops the two 0-point ranks: a 24-card deck, 6 cards a hand. */
+export const BLIND_RANKS: Rank[] = RANKS.filter((rank) => rank !== '8' && rank !== '7');
+
 /** Card point values. 8 cards x 4 suits => (30+20+11+10+3+2+0+0) * 4 = 304. */
 export const CARD_POINTS: Record<Rank, number> = {
   J: 30,
@@ -44,18 +47,6 @@ export const SEATS: Seat[] = [0, 1, 2, 3];
 
 /** Team 0 = North/South, Team 1 = East/West. */
 export type Team = 0 | 1;
-
-export const SEAT_NAMES: Record<Seat, string> = {
-  0: 'You',
-  1: 'West',
-  2: 'North',
-  3: 'East',
-};
-
-export const TEAM_NAMES: Record<Team, string> = {
-  0: 'North / South',
-  1: 'East / West',
-};
 
 export const teamOf = (seat: Seat): Team => (seat % 2 === 0 ? 0 : 1);
 export const nextSeat = (seat: Seat): Seat => ((seat + 1) % 4) as Seat;

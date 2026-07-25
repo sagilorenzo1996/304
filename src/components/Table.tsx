@@ -1,14 +1,16 @@
-import { canRequestReveal, GameState } from '../game/engine';
+import { canGuessTrump, canRequestReveal, canSubmitHiddenTrump, GameState } from '../game/engine';
 import { legalMoves } from '../game/rules';
-import { Card, Seat, SEAT_NAMES, cardPower } from '../game/types';
+import { Card, Seat, cardPower } from '../game/types';
 import { HUMAN } from '../hooks/useGame';
+import { useI18n } from '../i18n/LanguageContext';
 import CardView, { isRedSuit, suitChar } from './CardView';
 import TrickArea from './TrickArea';
 
 interface Props {
   state: GameState;
-  onPlayCard: (cardId: string) => void;
+  onPlayCard: (cardId: string, guess?: boolean) => void;
   onRequestReveal: () => void;
+  onSubmitHiddenTrump: () => void;
 }
 
 /** Sort for display: alternate suit colors, highest rank first within a suit. */
@@ -20,22 +22,25 @@ function sortHand(hand: Card[]): Card[] {
   });
 }
 
-function lastBidLabel(state: GameState, seat: Seat): string | null {
+function lastBidLabel(state: GameState, seat: Seat, passLabel: string): string | null {
   if (state.phase !== 'bidding' && state.phase !== 'trumpSelection') return null;
   for (let i = state.bidHistory.length - 1; i >= 0; i--) {
     const entry = state.bidHistory[i];
-    if (entry.seat === seat) return entry.bid === null ? 'Pass' : `${entry.bid}`;
+    if (entry.seat === seat) return entry.bid === null ? passLabel : `${entry.bid}`;
   }
   return null;
 }
 
-export default function Table({ state, onPlayCard, onRequestReveal }: Props) {
+export default function Table({ state, onPlayCard, onRequestReveal, onSubmitHiddenTrump }: Props) {
+  const { t, formatMessage } = useI18n();
   const humanTurn =
     state.phase === 'playing' && state.turn === HUMAN && !state.trickComplete;
   const legalIds = humanTurn
     ? new Set(legalMoves(state.hands[HUMAN], state.currentTrick).map((c) => c.id))
     : new Set<string>();
   const showReveal = canRequestReveal(state, HUMAN);
+  const showSubmitTrump = canSubmitHiddenTrump(state, HUMAN);
+  const mustGuess = canGuessTrump(state, HUMAN);
 
   const activeSeat =
     state.phase === 'bidding'
@@ -45,13 +50,13 @@ export default function Table({ state, onPlayCard, onRequestReveal }: Props) {
         : null;
 
   const seatPlate = (seat: Seat) => {
-    const bidLabel = lastBidLabel(state, seat);
+    const bidLabel = lastBidLabel(state, seat, t('bid.pass'));
     const won = state.trickComplete && state.trickWinnerSeat === seat;
     return (
       <div className={`plate ${activeSeat === seat ? 'active' : ''} ${won ? 'winner' : ''}`}>
         <span className="plate-name">
-          {SEAT_NAMES[seat]}
-          {seat === 2 && <em> · partner</em>}
+          {state.playerNames[seat]}
+          {seat === 2 && <em> · {t('table.partner')}</em>}
         </span>
         {state.dealer === seat && <span className="chip dealer">D</span>}
         {state.bidder === seat && state.bid !== null && (
@@ -92,13 +97,23 @@ export default function Table({ state, onPlayCard, onRequestReveal }: Props) {
 
       <TrickArea state={state} />
 
-      <div className="message-bar">{state.message}</div>
+      <div className="message-bar">{formatMessage(state.message)}</div>
 
       <div className="seat seat-south">
         {showReveal && (
           <button className="reveal-btn" onClick={onRequestReveal}>
-            Reveal Trump 🂠
+            {t('table.revealTrump')}
           </button>
+        )}
+        {showSubmitTrump && (
+          <button className="reveal-btn" onClick={onSubmitHiddenTrump}>
+            {t('table.submitHiddenTrump')}
+          </button>
+        )}
+        {mustGuess && (
+          <div className="reveal-btn active" style={{ cursor: 'default' }}>
+            {showSubmitTrump ? t('table.orFaceDown') : t('table.voidFaceDown')}
+          </div>
         )}
         <div className="hand">
           {sortHand(state.hands[HUMAN]).map((c, i) => (
@@ -106,7 +121,9 @@ export default function Table({ state, onPlayCard, onRequestReveal }: Props) {
               key={c.id}
               card={c}
               disabled={humanTurn && !legalIds.has(c.id)}
-              onClick={humanTurn && legalIds.has(c.id) ? () => onPlayCard(c.id) : undefined}
+              onClick={
+                humanTurn && legalIds.has(c.id) ? () => onPlayCard(c.id, mustGuess) : undefined
+              }
               className={humanTurn && legalIds.has(c.id) ? 'playable' : ''}
               style={{ animationDelay: `${i * 60}ms` }}
             />
@@ -115,15 +132,17 @@ export default function Table({ state, onPlayCard, onRequestReveal }: Props) {
         {seatPlate(0)}
         {state.bidder === HUMAN && state.trumpCard && !state.trumpRevealed && (
           <div className="secret-trump">
-            Your secret trump: {state.trumpCard.rank}
-            {suitChar(state.trumpCard.suit)}
+            {t('table.secretTrump', {
+              rank: state.trumpCard.rank,
+              suit: suitChar(state.trumpCard.suit),
+            })}
           </div>
         )}
       </div>
 
       {state.trumpRevealed && state.trumpCard && (
         <div className="trump-banner">
-          Trump:{' '}
+          {t('table.trumpLabel')}{' '}
           <b className={isRedSuit(state.trumpCard.suit) ? 'red' : ''}>
             {suitChar(state.trumpCard.suit)}
           </b>

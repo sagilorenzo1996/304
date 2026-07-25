@@ -1,6 +1,6 @@
-import { BID_STEP, GameState, isValidBid, MAX_BID, MIN_BID } from '../game/engine';
-import { SEAT_NAMES } from '../game/types';
+import { BID_STEP, GameState, isValidBid, MAX_BID, minBidFor } from '../game/engine';
 import { HUMAN } from '../hooks/useGame';
+import { useI18n } from '../i18n/LanguageContext';
 import CardView from './CardView';
 
 interface Props {
@@ -10,7 +10,8 @@ interface Props {
 
 /** Overlay shown while it is the human's turn to bid. */
 export default function BiddingModal({ state, onBid }: Props) {
-  const need = state.highBid === null ? MIN_BID : state.highBid + BID_STEP;
+  const { t } = useI18n();
+  const need = state.highBid === null ? minBidFor(state.mode) : state.highBid + BID_STEP;
   const options: number[] = [];
   for (let bid = need; bid <= 300 && options.length < 4; bid += BID_STEP) {
     if (isValidBid(state, bid)) options.push(bid);
@@ -20,11 +21,11 @@ export default function BiddingModal({ state, onBid }: Props) {
   return (
     <div className="overlay">
       <div className="modal">
-        <h2>Your bid</h2>
+        <h2>{t('bid.title')}</h2>
         <p className="modal-sub">
           {state.highBid === null
-            ? `Bidding opens at ${MIN_BID}.`
-            : `${SEAT_NAMES[state.highBidder!]} holds the bid at ${state.highBid}.`}
+            ? t('bid.opensAt', { min: minBidFor(state.mode) })
+            : t('bid.holdsAt', { name: state.playerNames[state.highBidder!], bid: state.highBid })}
         </p>
         <div className="hand-preview">
           {state.hands[HUMAN].map((c) => (
@@ -34,7 +35,7 @@ export default function BiddingModal({ state, onBid }: Props) {
         <div className="bid-history">
           {state.bidHistory.map((entry, i) => (
             <span key={i} className={`chip ${entry.bid === null ? 'muted' : ''}`}>
-              {SEAT_NAMES[entry.seat]}: {entry.bid ?? 'Pass'}
+              {state.playerNames[entry.seat]}: {entry.bid ?? t('bid.pass')}
             </span>
           ))}
         </div>
@@ -45,7 +46,7 @@ export default function BiddingModal({ state, onBid }: Props) {
             </button>
           ))}
           <button className="btn danger" onClick={() => onBid(null)}>
-            Pass
+            {t('bid.pass')}
           </button>
         </div>
       </div>

@@ -1,6 +1,10 @@
+import { useState } from 'react';
 import { GameState } from '../game/engine';
 import { useGame, HUMAN } from '../hooks/useGame';
 import BiddingModal from './BiddingModal';
+import GameToolbar from './GameToolbar';
+import HowToPlayModal from './HowToPlayModal';
+import LanguageToggle from './LanguageToggle';
 import MuteButton from './MuteButton';
 import RoundEndModal from './RoundEndModal';
 import Scoreboard from './Scoreboard';
@@ -9,10 +13,12 @@ import TrumpSelectModal from './TrumpSelectModal';
 
 interface Props {
   initialState: GameState;
+  onQuit: () => void;
 }
 
-export default function GameScreen({ initialState }: Props) {
+export default function GameScreen({ initialState, onQuit }: Props) {
   const { state, dispatch } = useGame(initialState);
+  const [helpOpen, setHelpOpen] = useState(false);
 
   const humanBidding =
     state.phase === 'bidding' && state.bidTurn === HUMAN && !state.passed[HUMAN];
@@ -22,11 +28,14 @@ export default function GameScreen({ initialState }: Props) {
     <>
       <Table
         state={state}
-        onPlayCard={(cardId) => dispatch({ type: 'PLAY', seat: HUMAN, cardId })}
+        onPlayCard={(cardId, guess) => dispatch({ type: 'PLAY', seat: HUMAN, cardId, guess })}
         onRequestReveal={() => dispatch({ type: 'REVEAL', seat: HUMAN })}
+        onSubmitHiddenTrump={() => dispatch({ type: 'SUBMIT_HIDDEN_TRUMP', seat: HUMAN })}
       />
       <Scoreboard state={state} />
+      <LanguageToggle className="language-toggle--game" />
       <MuteButton />
+      <GameToolbar onQuit={onQuit} onHelp={() => setHelpOpen(true)} />
       {humanBidding && (
         <BiddingModal state={state} onBid={(bid) => dispatch({ type: 'BID', seat: HUMAN, bid })} />
       )}
@@ -39,6 +48,7 @@ export default function GameScreen({ initialState }: Props) {
       {state.phase === 'roundEnd' && (
         <RoundEndModal state={state} onNextRound={() => dispatch({ type: 'NEXT_ROUND' })} />
       )}
+      {helpOpen && <HowToPlayModal onClose={() => setHelpOpen(false)} />}
     </>
   );
 }

@@ -1,18 +1,24 @@
 import { useEffect, useState } from 'react';
-import { createRound, GameState } from '../game/engine';
+import { createRound, GAME_MODES, GameMode, GameState } from '../game/engine';
+import { useI18n } from '../i18n/LanguageContext';
 import { loadPlayerName, loadSavedGame, clearSavedGame, savePlayerName } from '../lib/storage';
 import ConfirmNewGameModal from './ConfirmNewGameModal';
 import HowToPlayModal from './HowToPlayModal';
+import LanguageToggle from './LanguageToggle';
+import StatsModal from './StatsModal';
 
 interface Props {
   onStart: (state: GameState) => void;
 }
 
 export default function HomeScreen({ onStart }: Props) {
+  const { t } = useI18n();
   const [name, setName] = useState(() => loadPlayerName() ?? '');
   const [savedGame] = useState(() => loadSavedGame());
+  const [mode, setMode] = useState<GameMode>('classic');
   const [confirmingNewGame, setConfirmingNewGame] = useState(false);
   const [howToPlayOpen, setHowToPlayOpen] = useState(false);
+  const [statsOpen, setStatsOpen] = useState(false);
 
   useEffect(() => {
     savePlayerName(name.trim());
@@ -20,7 +26,7 @@ export default function HomeScreen({ onStart }: Props) {
 
   const startNewGame = () => {
     clearSavedGame();
-    onStart(createRound(3, [0, 0], 1));
+    onStart(createRound(3, [0, 0], 1, Math.random, mode));
   };
 
   const handleNewGame = () => {
@@ -35,28 +41,45 @@ export default function HomeScreen({ onStart }: Props) {
 
   return (
     <>
+      <LanguageToggle />
       <div className="overlay">
         <div className="modal">
-          <h2>{trimmed ? `Welcome back, ${trimmed}!` : 'Welcome!'}</h2>
-          <p className="modal-sub">304 — the classic South Indian trick-taking card game.</p>
+          <h2>{trimmed ? t('home.welcomeBack', { name: trimmed }) : t('home.welcome')}</h2>
+          <p className="modal-sub">{t('home.tagline')}</p>
           <input
             className="name-input"
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Your name"
+            placeholder={t('home.namePlaceholder')}
           />
+          <div className="mode-picker">
+            {GAME_MODES.map((id) => (
+              <button
+                key={id}
+                type="button"
+                className={`mode-option${mode === id ? ' active' : ''}`}
+                onClick={() => setMode(id)}
+              >
+                {t(`mode.${id}.label`)}
+              </button>
+            ))}
+          </div>
+          <p className="modal-sub mode-description">{t(`mode.${mode}.description`)}</p>
           <div className="home-actions">
             <button className="btn primary" onClick={handleNewGame}>
-              New Game
+              {t('home.newGame')}
             </button>
             {savedGame && (
               <button className="btn" onClick={() => onStart(savedGame)}>
-                Resume Game
+                {t('home.resumeGame')}
               </button>
             )}
             <button className="btn" onClick={() => setHowToPlayOpen(true)}>
-              How to Play
+              {t('home.howToPlay')}
+            </button>
+            <button className="btn" onClick={() => setStatsOpen(true)}>
+              {t('home.stats')}
             </button>
           </div>
         </div>
@@ -71,6 +94,7 @@ export default function HomeScreen({ onStart }: Props) {
         />
       )}
       {howToPlayOpen && <HowToPlayModal onClose={() => setHowToPlayOpen(false)} />}
+      {statsOpen && <StatsModal onClose={() => setStatsOpen(false)} />}
     </>
   );
 }
