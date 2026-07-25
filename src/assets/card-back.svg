@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 284">
+  <defs>
+    <radialGradient id="field" cx="50%" cy="42%" r="75%">
+      <stop offset="0%" stop-color="#1f7a8c"/>
+      <stop offset="60%" stop-color="#145066"/>
+      <stop offset="100%" stop-color="#0a2f42"/>
+    </radialGradient>
+    <pattern id="lattice" width="20" height="20" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <path d="M10,1 L19,10 L10,19 L1,10 Z" fill="none" stroke="#3d94a6" stroke-width="0.6" opacity="0.3"/>
+    </pattern>
+    <g id="petal">
+      <path d="M0,-6 C11,-24 9,-42 0,-50 C-9,-42 -11,-24 0,-6 Z" fill="#b6332c" stroke="#7a1f1a" stroke-width="1.5"/>
+      <path d="M0,-10 C5,-24 4,-38 0,-46" fill="none" stroke="#e2534a" stroke-width="1" opacity="0.7"/>
+    </g>
+    <g id="corner">
+      <path d="M2,22 C2,10 10,2 22,2" fill="none" stroke="#d9b64e" stroke-width="3"/>
+      <path d="M2,14 C2,7 7,2 14,2" fill="none" stroke="#d9b64e" stroke-width="2"/>
+      <circle cx="6" cy="6" r="2.4" fill="#d9b64e"/>
+    </g>
+  </defs>
+
+  <rect width="200" height="284" fill="url(#field)"/>
+  <rect x="10" y="10" width="180" height="264" fill="url(#lattice)"/>
+  <rect x="10" y="10" width="180" height="264" fill="none" stroke="#e8c877" stroke-width="1.25" opacity="0.85"/>
+
+  <use href="#corner" x="8" y="8"/>
+  <use href="#corner" x="192" y="8" transform="scale(-1,1) translate(-200,0)"/>
+  <use href="#corner" x="8" y="276" transform="scale(1,-1) translate(0,-284)"/>
+  <use href="#corner" x="192" y="276" transform="scale(-1,-1) translate(-200,-284)"/>
+
+  <g transform="translate(100,142)">
+    <circle r="58" fill="none" stroke="#e8c877" stroke-width="1.5" opacity="0.8"/>
+    <use href="#petal" transform="rotate(0)"/>
+    <use href="#petal" transform="rotate(45)"/>
+    <use href="#petal" transform="rotate(90)"/>
+    <use href="#petal" transform="rotate(135)"/>
+    <use href="#petal" transform="rotate(180)"/>
+    <use href="#petal" transform="rotate(225)"/>
+    <use href="#petal" transform="rotate(270)"/>
+    <use href="#petal" transform="rotate(315)"/>
+    <circle r="12" fill="#e8c877" stroke="#a67c1f" stroke-width="1.5"/>
+    <circle r="5" fill="#f6dfa0"/>
+  </g>
+</svg>

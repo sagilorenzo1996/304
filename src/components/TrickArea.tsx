@@ -20,7 +20,8 @@ export default function TrickArea({ state }: { state: GameState }) {
         <CardView
           key={p.card.id}
           card={p.card}
-          faceDown={p.concealed && p.seat !== HUMAN && state.bidder !== HUMAN}
+          faceDown={p.concealed}
+          peek={p.concealed && (p.seat === HUMAN || state.bidder === HUMAN)}
           className={`played pos-${p.seat} from-${p.seat}`}
         />
       ))}
