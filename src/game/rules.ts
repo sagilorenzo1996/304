@@ -37,6 +37,26 @@ export function trickPoints(trick: PlayedCard[]): number {
 }
 
 /**
+ * Whether `viewer` may see through a concealed card's face-down back and
+ * learn its identity. The seat that played it always knows its own card.
+ * The bidder eventually learns every concealed card too (see the
+ * `concealed` doc above) — but only once `viewer` has committed their own
+ * card to the trick, so a bidder still to act gets no early edge from a
+ * card someone else played face-down (mirrors the "nobody still to act in
+ * that trick learns early" rule for blind-mode guesses, see engine.ts).
+ */
+export function canPeekConcealed(
+  trick: PlayedCard[],
+  bidder: Seat | null,
+  playedBy: Seat,
+  viewer: Seat,
+): boolean {
+  if (playedBy === viewer) return true;
+  if (bidder !== viewer) return false;
+  return trick.some((p) => p.seat === viewer);
+}
+
+/**
  * Cards a player may legally play: must follow the led suit when possible,
  * otherwise any card. Trumping is allowed but never forced (house rule).
  */

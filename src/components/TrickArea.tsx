@@ -1,5 +1,5 @@
 import { GameState } from '../game/engine';
-import { trickPoints } from '../game/rules';
+import { canPeekConcealed, trickPoints } from '../game/rules';
 import { HUMAN } from '../hooks/useGame';
 import CardView from './CardView';
 
@@ -21,7 +21,7 @@ export default function TrickArea({ state }: { state: GameState }) {
           key={p.card.id}
           card={p.card}
           faceDown={p.concealed}
-          peek={p.concealed && (p.seat === HUMAN || state.bidder === HUMAN)}
+          peek={p.concealed && canPeekConcealed(state.currentTrick, state.bidder, p.seat, HUMAN)}
           className={`played pos-${p.seat} from-${p.seat}`}
         />
       ))}
