@@ -220,15 +220,10 @@ body {
 }
 
 .card.back {
-  background:
-    repeating-linear-gradient(
-      45deg,
-      #1e3f8f 0,
-      #1e3f8f 6px,
-      #2b55b8 6px,
-      #2b55b8 12px
-    );
-  border: 3px solid #fff;
+  background-image: url('./assets/card-back.svg');
+  background-size: cover;
+  background-position: center;
+  border: 3px solid var(--gold);
 }
 
 /* A concealed card whose identity this viewer is allowed to know: still
@@ -237,7 +232,8 @@ body {
 .card.back.peek .corner,
 .card.back.peek .pip {
   color: #fff;
-  opacity: 0.45;
+  opacity: 0.55;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
 }
 
 .card.red {
