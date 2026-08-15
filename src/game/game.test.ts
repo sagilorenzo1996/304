@@ -19,7 +19,7 @@ import {
   selectTrump,
   submitHiddenTrump,
 } from './engine';
-import { legalMoves, PlayedCard, trickPoints, trickWinner } from './rules';
+import { canPeekConcealed, legalMoves, PlayedCard, trickPoints, trickWinner } from './rules';
 import { Card, Rank, Seat, Suit } from './types';
 
 const card = (suit: Suit, rank: Rank): Card => ({ id: `${suit}-${rank}`, suit, rank });
@@ -81,6 +81,28 @@ describe('trick evaluation', () => {
       played(3, 'H', 'J'),
     ];
     expect(trickWinner(trick, 'S')).toBe(2);
+  });
+});
+
+describe('concealed card visibility', () => {
+  it('always lets the seat that played a concealed card see it', () => {
+    expect(canPeekConcealed([], null, 1, 1)).toBe(true);
+  });
+
+  it('hides a concealed card from anyone who is neither the player nor the bidder', () => {
+    const trick = [played(3, 'S', 'Q'), played(2, 'S', 'K')];
+    expect(canPeekConcealed(trick, 0, 2, 1)).toBe(false);
+  });
+
+  it('hides a concealed card from the bidder until the bidder has played into the trick', () => {
+    // Bidder is seat 0, but seat 0 hasn't played into this trick yet.
+    const trick = [played(3, 'S', 'Q'), played(2, 'S', 'K')];
+    expect(canPeekConcealed(trick, 0, 2, 0)).toBe(false);
+  });
+
+  it('reveals a concealed card to the bidder once the bidder has committed a card to the trick', () => {
+    const trick = [played(3, 'S', 'Q'), played(0, 'S', 'A'), played(2, 'S', 'K')];
+    expect(canPeekConcealed(trick, 0, 2, 0)).toBe(true);
   });
 });
 
